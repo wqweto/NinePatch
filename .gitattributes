@@ -5,3 +5,4 @@
 *.dll -text
 *.cmp -text
 *.cobj -text
+*.png -text
