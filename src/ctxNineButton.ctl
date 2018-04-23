@@ -781,7 +781,6 @@ Private Function pvPrepareBitmap( _
             hFocusBitmap As Long, _
             hBitmap As Long) As Boolean
     Const FUNC_NAME     As String = "pvPrepareBitmap"
-    Dim oPatch          As cNinePatch
     Dim hGraphics       As Long
     Dim hNewFocusBitmap As Long
     Dim hNewBitmap      As Long
@@ -799,33 +798,26 @@ Private Function pvPrepareBitmap( _
     On Error GoTo EH
     If (eState And ucsBstFocused) <> 0 And (eState And ucsBstHoverPressed) <> ucsBstHoverPressed Then
         If hFocusBitmap = 0 Then
-            Set oPatch = m_uButton(ucsBstFocused).ImagePatch
-            If Not oPatch Is Nothing Then
-                If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, ByVal 0, hNewFocusBitmap) <> 0 Then
-                    GoTo QH
+            With m_uButton(ucsBstFocused)
+                If Not .ImagePatch Is Nothing Then
+                    If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, ByVal 0, hNewFocusBitmap) <> 0 Then
+                        GoTo QH
+                    End If
+                    If GdipGetImageGraphicsContext(hNewFocusBitmap, hGraphics) <> 0 Then
+                        GoTo QH
+                    End If
+                    If Not .ImagePatch.DrawToGraphics(hGraphics, 0, 0, ScaleWidth, ScaleHeight) Then
+                        GoTo QH
+                    End If
+                    Call GdipDeleteGraphics(hGraphics)
+                    hGraphics = 0
                 End If
-                If GdipGetImageGraphicsContext(hNewFocusBitmap, hGraphics) <> 0 Then
-                    GoTo QH
-                End If
-                If Not oPatch.DrawToGraphics(hGraphics, 0, 0, ScaleWidth, ScaleHeight) Then
-                    GoTo QH
-                End If
-                Call GdipDeleteGraphics(hGraphics)
-                hGraphics = 0
-            End If
+            End With
         Else
             hNewFocusBitmap = hFocusBitmap
         End If
     End If
     With m_uButton(pvGetEffectiveState(eState))
-        Set oPatch = .ImagePatch
-'        If oPatch Is Nothing Then
-'            If hBitmap <> 0 Then
-'                Call GdipDisposeImage(hBitmap)
-'                hBitmap = 0
-'            End If
-'            GoTo QH
-'        End If
         If Not .TextFont Is Nothing Then
             If Not pvPrepareFont(.TextFont, hFont) Then
                 GoTo QH
@@ -839,11 +831,11 @@ Private Function pvPrepareBitmap( _
         If GdipGetImageGraphicsContext(hNewBitmap, hGraphics) <> 0 Then
             GoTo QH
         End If
-        If Not oPatch Is Nothing Then
-            If Not oPatch.DrawToGraphics(hGraphics, 0, 0, ScaleWidth, ScaleHeight) Then
+        If Not .ImagePatch Is Nothing Then
+            If Not .ImagePatch.DrawToGraphics(hGraphics, 0, 0, ScaleWidth, ScaleHeight) Then
                 GoTo QH
             End If
-            oPatch.CalcClientRect ScaleWidth, ScaleHeight, lLeft, lTop, lWidth, lHeight
+            .ImagePatch.CalcClientRect ScaleWidth, ScaleHeight, lLeft, lTop, lWidth, lHeight
         Else
             lWidth = ScaleWidth
             lHeight = ScaleHeight
@@ -871,7 +863,7 @@ Private Function pvPrepareBitmap( _
             uRect.Top = lTop + lOffset
             uRect.Right = lWidth
             uRect.Bottom = lHeight
-            If .ShadowOffsetX <> 0 Or .ShadowOffsetY <> 0 Or oPatch Is Nothing Then
+            If .ShadowOffsetX <> 0 Or .ShadowOffsetY <> 0 Or .ImagePatch Is Nothing Then
                 If GdipCreateSolidFill(pvTranslateColor(.ShadowColor, .ShadowOpacity), hShadowBrush) <> 0 Then
                     GoTo QH
                 End If
@@ -1421,7 +1413,6 @@ Private Function pvResExtract(ByVal hResBitmap As Long, ByVal eIdx As UcsNineBut
     hNewBitmap = 0
     '--- success
     Set pvResExtract = oRetVal
-    Exit Function
 QH:
     If hNewBitmap <> 0 Then
         Call GdipDisposeImage(hNewBitmap)
