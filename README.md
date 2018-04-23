@@ -5,7 +5,15 @@ Nine Patch PNGs for VB6
 
 NPPNG project includes `cNinePatch.cls` for 9-patch parsing/handling and `ctxNineButton.ctl` custom user-control for transparent animated buttons with states based on 9-patches.
 
-### Supported UI through `Style` property
+### Source usage
+
+Just include `src/cNinePatch.cls` in your projects to be able to load and draw 9-patches in user-defined sizes.
+
+Add `src/ctxNineButton.ctl` and `src/mdNineButton.bas` for the transparent windowless button control, with states based on nine-patches.
+
+In `ctxNineButton` you can set conditional compilation constant `ImplHasTimers` to `False` to disable control state-transition animations. In this case `src/mdNineButton.bas` will not be depended on anymore and the control becomes self-contained in `src/ctxNineButton.ctl`.
+
+### Preset `ctxNineButton` styles
 
 | Type            | Style                      | Preview                                   |
 | --------------- | -------------------------- | ----------------------------------------- |
@@ -37,7 +45,7 @@ NPPNG project includes `cNinePatch.cls` for 9-patch parsing/handling and `ctxNin
 |                 | `ucsBtyCardSuccess`        | ![CardSuccess](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardSuccess.png)       |
 |                 | `ucsBtyCardPurple`         | ![CardPurple](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardPurple.png)         |
 
-### Supported states
+### Supported button states
 
 | State                | Description |
 | -------------------- | ----------- |
@@ -50,7 +58,7 @@ NPPNG project includes `cNinePatch.cls` for 9-patch parsing/handling and `ctxNin
 
 Each state can have a different 9-patch image, text and shadow properties.
 
-### Supported state customization
+### Supported state customizations
 
 | Property              | Description |
 | --------------------- | ----------- |
