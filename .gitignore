@@ -1,0 +1,22 @@
+## VB6 workspace
+
+*.vbw
+*.bak
+*.log
+*.scc
+*.zip
+*.exp
+*.lib
+*.obj
+*.dll
+*.exe
+*.pdb
+~*
+*.db
+*.opendb
+*.tmp
+
+_del/
+[Rr]elease/
+[Dd]ebug/
+.vs/
