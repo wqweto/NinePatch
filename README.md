@@ -10,32 +10,32 @@ NPPNG project includes `cNinePatch.cls` for 9-patch parsing/handling and `ctxNin
 | Type            | Style                      | Preview                                   |
 | --------------- | -------------------------- | ----------------------------------------- |
 | Buttons         | Simple buttons                                                        ||
-|                 | `ucsBtyButtonDefault`      | ![ButtonDefault](doc/ButtonDefault.png)   |
-|                 | `ucsBtyButtonGreen`        | ![ButtonGreen](doc/ButtonGreen.png)       |
-|                 | `ucsBtyButtonTurnRed`      | ![ButtonTurnRed](doc/ButtonTurnRed.png)   |
+|                 | `ucsBtyButtonDefault`      | ![ButtonDefault](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/ButtonDefault.png)   |
+|                 | `ucsBtyButtonGreen`        | ![ButtonGreen](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/ButtonGreen.png)       |
+|                 | `ucsBtyButtonTurnRed`      | ![ButtonTurnRed](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/ButtonTurnRed.png)   |
 | Flat Buttons    | Flat buttons based on bootstrap                                       ||
-|                 | `ucsBtyFlatPrimary`        | ![FlatPrimary](doc/FlatPrimary.png)       |
-|                 | `ucsBtyFlatSecondary`      | ![FlatSecondary](doc/FlatSecondary.png)   |
-|                 | `ucsBtyFlatSuccess`        | ![FlatSuccess](doc/FlatSuccess.png)       |
-|                 | `ucsBtyFlatDanger`         | ![FlatDanger](doc/FlatDanger.png)         |
-|                 | `ucsBtyFlatWarning`        | ![FlatWarning](doc/FlatWarning.png)       |
-|                 | `ucsBtyFlatInfo`           | ![FlatInfo](doc/FlatInfo.png)             |
-|                 | `ucsBtyFlatLight`          | ![FlatLight](doc/FlatLight.png)           |
-|                 | `ucsBtyFlatDark`           | ![FlatDark](doc/FlatDark.png)             |
+|                 | `ucsBtyFlatPrimary`        | ![FlatPrimary](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatPrimary.png)       |
+|                 | `ucsBtyFlatSecondary`      | ![FlatSecondary](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatSecondary.png)   |
+|                 | `ucsBtyFlatSuccess`        | ![FlatSuccess](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatSuccess.png)       |
+|                 | `ucsBtyFlatDanger`         | ![FlatDanger](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatDanger.png)         |
+|                 | `ucsBtyFlatWarning`        | ![FlatWarning](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatWarning.png)       |
+|                 | `ucsBtyFlatInfo`           | ![FlatInfo](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatInfo.png)             |
+|                 | `ucsBtyFlatLight`          | ![FlatLight](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatLight.png)           |
+|                 | `ucsBtyFlatDark`           | ![FlatDark](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/FlatDark.png)             |
 | Outline Buttons | Outline buttons based on boostrap                                     ||
-|                 | `ucsBtyOutlinePrimary`     | ![OutlinePrimary](doc/OutlinePrimary.png) |
-|                 | `ucsBtyOutlineSecondary`   | ![OutlineSecondary](doc/OutlineSecondary.png) |
-|                 | `ucsBtyOutlineSuccess`     | ![OutlineSuccess](doc/OutlineSuccess.png) |
-|                 | `ucsBtyOutlineDanger`      | ![OutlineDanger](doc/OutlineDanger.png)   |
-|                 | `ucsBtyOutlineWarning`     | ![OutlineWarning](doc/OutlineWarning.png) |
-|                 | `ucsBtyOutlineInfo`        | ![OutlineInfo](doc/OutlineInfo.png)       |
-|                 | `ucsBtyOutlineLight`       | ![OutlineLight](doc/OutlineLight.png)     |
-|                 | `ucsBtyOutlineDark`        | ![OutlineDark](doc/OutlineDark.png)       |
+|                 | `ucsBtyOutlinePrimary`     | ![OutlinePrimary](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlinePrimary.png) |
+|                 | `ucsBtyOutlineSecondary`   | ![OutlineSecondary](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineSecondary.png) |
+|                 | `ucsBtyOutlineSuccess`     | ![OutlineSuccess](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineSuccess.png) |
+|                 | `ucsBtyOutlineDanger`      | ![OutlineDanger](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineDanger.png)   |
+|                 | `ucsBtyOutlineWarning`     | ![OutlineWarning](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineWarning.png) |
+|                 | `ucsBtyOutlineInfo`        | ![OutlineInfo](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineInfo.png)       |
+|                 | `ucsBtyOutlineLight`       | ![OutlineLight](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineLight.png)     |
+|                 | `ucsBtyOutlineDark`        | ![OutlineDark](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/OutlineDark.png)       |
 | Cards           | Static cards that can be owner-drawn with information                 ||
-|                 | `ucsBtyCardDefault`        | ![CardDefault](doc/CardDefault.png)       |
-|                 | `ucsBtyCardPrimary`        | ![CardPrimary](doc/CardPrimary.png)       |
-|                 | `ucsBtyCardSuccess`        | ![CardSuccess](doc/CardSuccess.png)       |
-|                 | `ucsBtyCardPurple`         | ![CardPurple](doc/CardPurple.png)         |
+|                 | `ucsBtyCardDefault`        | ![CardDefault](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardDefault.png)       |
+|                 | `ucsBtyCardPrimary`        | ![CardPrimary](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardPrimary.png)       |
+|                 | `ucsBtyCardSuccess`        | ![CardSuccess](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardSuccess.png)       |
+|                 | `ucsBtyCardPurple`         | ![CardPurple](https://raw.githubusercontent.com/wqweto/NinePatch/master/doc/CardPurple.png)         |
 
 ### Supported states
 
