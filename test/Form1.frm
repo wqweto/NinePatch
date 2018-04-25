@@ -116,7 +116,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton28 
       Height          =   1524
-      Left            =   11004
+      Left            =   11508
       TabIndex        =   36
       Top             =   3192
       Width           =   1776
@@ -443,7 +443,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton11 
       Height          =   1524
-      Left            =   5712
+      Left            =   5964
       TabIndex        =   16
       Top             =   3192
       Width           =   1776
@@ -462,7 +462,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton12 
       Height          =   1524
-      Left            =   7476
+      Left            =   7812
       TabIndex        =   15
       Top             =   3192
       Width           =   1776
@@ -481,7 +481,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton13 
       Height          =   1524
-      Left            =   9240
+      Left            =   9660
       TabIndex        =   14
       Top             =   3192
       Width           =   1776
@@ -500,7 +500,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton10 
       Height          =   1524
-      Left            =   3948
+      Left            =   4116
       TabIndex        =   13
       Top             =   3192
       Width           =   1776
@@ -519,7 +519,7 @@ Begin VB.Form Form1
    End
    Begin Project1.ctxNineButton ctxNineButton9 
       Height          =   1524
-      Left            =   2184
+      Left            =   2268
       TabIndex        =   12
       Top             =   3192
       Width           =   1776
@@ -547,7 +547,7 @@ Begin VB.Form Form1
       Style           =   22
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
-         Size            =   9
+         Size            =   10.2
          Charset         =   204
          Weight          =   400
          Underline       =   0   'False
@@ -717,13 +717,13 @@ Option Explicit
 Private Const UnitPoint                     As Long = 3
 
 Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal Name As Long, ByVal fontCollection As Long, fontFamily As Long) As Long
-Private Declare Function GdipGetGenericFontFamilySansSerif Lib "gdiplus" (fontFamily As Long) As Long
-Private Declare Function GdipDeleteFontFamily Lib "gdiplus" (ByVal fontFamily As Long) As Long
-Private Declare Function GdipCreateFont Lib "gdiplus" (ByVal fontFamily As Long, ByVal emSize As Single, ByVal Style As Long, ByVal unit As Long, createdfont As Long) As Long
-Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal argb As Long, Brush As Long) As Long
-Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal Brush As Long) As Long
-Private Declare Function GdipDrawString Lib "gdiplus" (ByVal graphics As Long, ByVal str As Long, ByVal Length As Long, ByVal thefont As Long, layoutRect As RECTF, ByVal StringFormat As Long, ByVal Brush As Long) As Long
+Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal Name As Long, ByVal hFontCollection As Long, hFontFamily As Long) As Long
+Private Declare Function GdipGetGenericFontFamilySansSerif Lib "gdiplus" (hFontFamily As Long) As Long
+Private Declare Function GdipDeleteFontFamily Lib "gdiplus" (ByVal hFontFamily As Long) As Long
+Private Declare Function GdipCreateFont Lib "gdiplus" (ByVal hFontFamily As Long, ByVal emSize As Single, ByVal Style As Long, ByVal unit As Long, createdfont As Long) As Long
+Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal argb As Long, hBrush As Long) As Long
+Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
+Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, ByVal str As Long, ByVal Length As Long, ByVal thefont As Long, layoutRect As RECTF, ByVal hStringFormat As Long, ByVal hBrush As Long) As Long
 
 Private Type RECTF
    Left             As Single
@@ -854,6 +854,7 @@ End Function
 
 
 Private Sub Form_Click()
+    On Error Resume Next
     BackColor = QBColor(Rnd * 16)
 End Sub
 
@@ -1061,6 +1062,9 @@ Private Sub Form_Load()
 '        .ButtonState = ucsBstNormal
 '    End With
 '
+    With ctxNineButton8
+        .ButtonTextOpacity(ucsBstNormal) = 1
+    End With
 '    With ctxNineButton8
 '        .ButtonImageArray(ucsBstNormal) = ReadBinaryFile(App.Path & "\res\card-normal.png")
 '        .ButtonImageArray(ucsBstHover) = EmptyByteArray
@@ -1586,6 +1590,7 @@ Private Sub Combo1_Click()
 End Sub
 
 Private Sub Form_Resize()
+    On Error Resume Next
     If WindowState = vbMinimized Then
         Exit Sub
     End If
