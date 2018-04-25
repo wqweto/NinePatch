@@ -55,31 +55,31 @@ Private Declare Function GlobalUnlock Lib "kernel32" (ByVal hMem As Long) As Lon
 Private Declare Function GlobalFree Lib "kernel32" (ByVal hMem As Long) As Long
 Private Declare Function CreateStreamOnHGlobal Lib "ole32" (ByVal hGlobal As Long, ByVal fDeleteOnRelease As Long, ppstm As Any) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-Private Declare Function GdiplusStartup Lib "gdiplus" (token As Long, inputbuf As GdiplusStartupInput, Optional ByVal OutputBuf As Long = 0) As Long
-Private Declare Function GdipLoadImageFromFile Lib "gdiplus" (ByVal mFilename As Long, ByRef mImage As Long) As Long
-Private Declare Function GdipLoadImageFromStream Lib "gdiplus" (ByVal pStream As IUnknown, ByRef mImage As Long) As Long
-Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Long, ByRef nWidth As Single, ByRef nHeight As Single) As Long
-Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal Image As Long) As Long
-Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal bitmap As Long, Rct As APIRECTL, ByVal flags As Long, ByVal PixelFormat As Long, lockedBitmapData As APIBITMAPDATA) As Long
-Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal bitmap As Long, lockedBitmapData As APIBITMAPDATA) As Long
+Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, uInputBuf As GdiplusStartupInput, Optional ByVal lOutputBuf As Long = 0) As Long
+Private Declare Function GdipLoadImageFromFile Lib "gdiplus" (ByVal lFilenamePtr As Long, hImage As Long) As Long
+Private Declare Function GdipLoadImageFromStream Lib "gdiplus" (ByVal pStream As IUnknown, hImage As Long) As Long
+Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal hImage As Long, sngWidth As Single, sngHeight As Single) As Long
+Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal hImage As Long) As Long
+Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, uRect As APIRECTL, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As APIBITMAPDATA) As Long
+Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As APIBITMAPDATA) As Long
 Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hDC As Long, hGraphics As Long) As Long
 Private Declare Function GdipGetImageGraphicsContext Lib "gdiplus" (ByVal hImage As Long, hGraphics As Long) As Long
-Private Declare Function GdipSetInterpolationMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal InterMode As Long) As Long
-Private Declare Function GdipSetPixelOffsetMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal pixOffsetMode As Long) As Long
-Private Declare Function GdipDrawImageRectRect Lib "gdiplus" (ByVal hGraphics As Long, ByVal hImage As Long, ByVal dstX As Single, ByVal dstY As Single, ByVal dstWidth As Single, ByVal dstHeight As Single, ByVal srcX As Single, ByVal srcY As Single, ByVal srcWidth As Single, ByVal srcHeight As Single, Optional ByVal srcUnit As Long = UnitPixel, Optional ByVal imageAttributes As Long, Optional ByVal Callback As Long, Optional ByVal callbackData As Long) As Long
+'Private Declare Function GdipSetInterpolationMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal InterMode As Long) As Long
+Private Declare Function GdipSetPixelOffsetMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal lPixOffsetMode As Long) As Long
+Private Declare Function GdipDrawImageRectRect Lib "gdiplus" (ByVal hGraphics As Long, ByVal hImage As Long, ByVal dstX As Single, ByVal dstY As Single, ByVal dstWidth As Single, ByVal dstHeight As Single, ByVal srcX As Single, ByVal srcY As Single, ByVal srcWidth As Single, ByVal srcHeight As Single, Optional ByVal srcUnit As Long = UnitPixel, Optional ByVal hImageAttributes As Long, Optional ByVal pfnCallback As Long, Optional ByVal lCallbackData As Long) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
-Private Declare Function GdipCreateMatrix Lib "gdiplus" (mMatrix As Long) As Long
-Private Declare Function GdipCloneMatrix Lib "gdiplus" (ByVal mMatrix As Long, ByRef mCloneMatrix As Long) As Long
-Private Declare Function GdipTranslateMatrix Lib "gdiplus" (ByVal mMatrix As Long, ByVal mOffsetX As Single, ByVal mOffsetY As Single, ByVal mOrder As Long) As Long
-Private Declare Function GdipDeleteMatrix Lib "gdiplus" (ByVal mMatrix As Long) As Long
-Private Declare Function GdipSetWorldTransform Lib "gdiplus" (ByVal hGraphics As Long, ByVal mMatrix As Long) As Long
-Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal mColor As Long, ByRef hBrush As Long) As Long
+Private Declare Function GdipCreateMatrix Lib "gdiplus" (hMatrix As Long) As Long
+Private Declare Function GdipCloneMatrix Lib "gdiplus" (ByVal hMatrix As Long, hCloneMatrix As Long) As Long
+Private Declare Function GdipTranslateMatrix Lib "gdiplus" (ByVal hMatrix As Long, ByVal lOffsetX As Single, ByVal lOffsetY As Single, ByVal lOrder As Long) As Long
+Private Declare Function GdipDeleteMatrix Lib "gdiplus" (ByVal hMatrix As Long) As Long
+Private Declare Function GdipSetWorldTransform Lib "gdiplus" (ByVal hGraphics As Long, ByVal hMatrix As Long) As Long
+Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal lColor As Long, hBrush As Long) As Long
 Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
-Private Declare Function GdipFillRectangleI Lib "gdiplus" (ByVal hGraphics As Long, ByVal hBrush As Long, ByVal mX As Long, ByVal mY As Long, ByVal mWidth As Long, ByVal mHeight As Long) As Long
-Private Declare Function GdipSetCompositingMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal mCompositingMode As Long) As Long
-Private Declare Function GdipSetClipRectI Lib "gdiplus" (ByVal hGraphics As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, ByVal CombineMd As Long) As Long
-Private Declare Function GdipCreateTexture2I Lib "gdiplus" (ByVal hImage As Long, ByVal WrapMd As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, hBrush As Long) As Long
-Private Declare Function GdipScaleTextureTransform Lib "gdiplus" (ByVal hBrush As Long, ByVal sx As Single, ByVal sy As Single, ByVal order As Long) As Long
+Private Declare Function GdipFillRectangleI Lib "gdiplus" (ByVal hGraphics As Long, ByVal hBrush As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long) As Long
+Private Declare Function GdipSetCompositingMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal lCompositingMode As Long) As Long
+Private Declare Function GdipSetClipRectI Lib "gdiplus" (ByVal hGraphics As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, ByVal lCombineMd As Long) As Long
+Private Declare Function GdipCreateTexture2I Lib "gdiplus" (ByVal hImage As Long, ByVal lWrapMd As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, hBrush As Long) As Long
+Private Declare Function GdipScaleTextureTransform Lib "gdiplus" (ByVal hBrush As Long, ByVal sngX As Single, ByVal sngY As Single, ByVal lOrder As Long) As Long
 Private Declare Function GdipBeginContainer2 Lib "gdiplus" (ByVal hGraphics As Long, hState As Long) As Long
 Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long, ByVal hState As Long) As Long
 
@@ -269,9 +269,9 @@ Public Function DrawToGraphics(ByVal hGraphics As Long, ByVal lX As Long, ByVal 
     If GdipBeginContainer2(hGraphics, hState) <> 0 Then
         GoTo QH
     End If
-    If GdipSetInterpolationMode(hGraphics, InterpolationModeHighQuality) <> 0 Then
-        GoTo QH
-    End If
+'    If GdipSetInterpolationMode(hGraphics, InterpolationModeHighQuality) <> 0 Then
+'        GoTo QH
+'    End If
     If GdipSetPixelOffsetMode(hGraphics, PixelOffsetModeHighQuality) <> 0 Then
         GoTo QH
     End If
