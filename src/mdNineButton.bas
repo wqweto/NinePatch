@@ -9,6 +9,10 @@ Attribute VB_Name = "mdNineButton"
 '=========================================================================
 Option Explicit
 
+#Const ImplUseShared = NPPNG_USE_SHARED <> 0
+
+#If Not ImplUseShared Then
+
 '==============================================================================
 ' API
 '==============================================================================
@@ -84,6 +88,8 @@ Public Sub TerminateFireOnceTimer(Data As FireOnceTimerData)
         End If
     End With
 End Sub
+
+#End If ' ImplUseShared
 
 '==============================================================================
 ' Redirectors

@@ -123,6 +123,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   28
+      Caption         =   "ctxNineButton28"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -450,6 +451,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   25
+      Caption         =   "ctxNineButton11"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -469,6 +471,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   26
+      Caption         =   "ctxNineButton12"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -488,6 +491,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   27
+      Caption         =   "ctxNineButton13"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -507,6 +511,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   24
+      Caption         =   "ctxNineButton10"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -526,6 +531,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   23
+      Caption         =   "ctxNineButton9"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -545,6 +551,7 @@ Begin VB.Form Form1
       _ExtentX        =   3133
       _ExtentY        =   2688
       Style           =   22
+      Caption         =   "ctxNineButton8"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   10.2
@@ -652,6 +659,7 @@ Begin VB.Form Form1
       _ExtentX        =   3429
       _ExtentY        =   1058
       AnimationDuration=   0.2
+      Caption         =   "ctxNineButton3"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Segoe UI"
          Size            =   9
@@ -673,6 +681,7 @@ Begin VB.Form Form1
       _ExtentY        =   1651
       Style           =   0
       AnimationDuration=   0.2
+      Caption         =   "ctxNineButton2"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -694,6 +703,7 @@ Begin VB.Form Form1
       _ExtentY        =   1651
       Style           =   16
       AnimationDuration=   0.2
+      Caption         =   "ctxNineButton1"
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
          Name            =   "Tahoma"
          Size            =   9
@@ -808,7 +818,7 @@ Private Sub pvLongRunningTask()
     Loop
 End Sub
 
-Private Sub ctxNineButton8_OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long)
+Private Sub ctxNineButton8_OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
     Dim hBrush      As Long
     Dim lOffset     As Long
     Dim uRect       As RECTF

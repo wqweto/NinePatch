@@ -6,6 +6,8 @@ Begin VB.UserControl ctxNineButton
    ClientTop       =   0
    ClientWidth     =   4044
    ClipBehavior    =   0  'None
+   DefaultCancel   =   -1  'True
+   KeyPreview      =   -1  'True
    ScaleHeight     =   105
    ScaleMode       =   3  'Pixel
    ScaleWidth      =   337
@@ -35,9 +37,23 @@ Private Const STR_MODULE_NAME As String = "ctxNineButton"
 '=========================================================================
 
 Event Click()
+Attribute Click.VB_UserMemId = -600
 Event DblClick()
+Attribute DblClick.VB_UserMemId = -601
 Event ContextMenu()
-Event OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long)
+Event OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
+Event RegisterCancelMode(oCtl As Object, Handled As Boolean)
+Event KeyDown(KeyCode As Integer, Shift As Integer)
+Attribute KeyDown.VB_UserMemId = -602
+Event KeyPress(KeyAscii As Integer)
+Attribute KeyPress.VB_UserMemId = -604
+Event KeyUp(KeyCode As Integer, Shift As Integer)
+Event MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Attribute MouseDown.VB_UserMemId = -605
+Event MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Attribute MouseMove.VB_UserMemId = -606
+Event MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Attribute MouseUp.VB_UserMemId = -607
 
 '=========================================================================
 ' Public enums
@@ -111,26 +127,37 @@ End Enum
 
 '--- for GdipCreateBitmapFromScan0
 Private Const PixelFormat32bppARGB          As Long = &H26200A
+Private Const PixelFormat32bppPARGB         As Long = &HE200B
 '--- for GdipDrawImageXxx
 Private Const UnitPixel                     As Long = 2
 Private Const UnitPoint                     As Long = 3
-'--- for RedrawWindow
-Private Const RDW_INVALIDATE                As Long = &H1
-Private Const RDW_ERASE                     As Long = &H4
-Private Const RDW_ALLCHILDREN               As Long = &H80
-Private Const RDW_UPDATENOW                 As Long = &H100
-Private Const RDW_FRAME                     As Long = &H400
 '--- for CryptStringToBinary
 Private Const CRYPT_STRING_BASE64           As Long = 1
 '--- for GdipSetTextRenderingHint
 Private Const TextRenderingHintAntiAlias    As Long = 4
 Private Const TextRenderingHintClearTypeGridFit As Long = 5
+'--- for PeekMessage
+Private Const PM_REMOVE                     As Long = 1
+'--- Windows Messages
+Private Const WM_PAINT                      As Long = &HF
+'--- DIB Section constants
+Private Const DIB_RGB_COLORS                As Long = 0 '  color table in RGBs
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
+Private Declare Function PeekMessage Lib "user32" Alias "PeekMessageA" (lpMsg As APIMSG, ByVal hWnd As Long, ByVal wMsgFilterMin As Long, ByVal wMsgFilterMax As Long, ByVal wRemoveMsg As Long) As Long
+Private Declare Function DispatchMessage Lib "user32" Alias "DispatchMessageA" (lpMsg As APIMSG) As Long
+Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hDC As Long) As Long
+Private Declare Function DeleteDC Lib "gdi32" (ByVal hDC As Long) As Long
+Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
+Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As Long) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, uInputBuf As GdiplusStartupInput, Optional ByVal lOutputBuf As Long = 0) As Long
-Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, Scan0 As Any, hBitmap As Long) As Long
+Private Declare Function GetIconInfo Lib "user32" (ByVal hIcon As Long, piconinfo As ICONINFO) As Long
+Private Declare Function GetDIBits Lib "gdi32" (ByVal hDC As Long, ByVal hBitmap As Long, ByVal nStartScan As Long, ByVal nNumScans As Long, lpBits As Any, lpBI As BITMAPINFOHEADER, ByVal wUsage As Long) As Long
+Private Declare Function CreateDIBSection Lib "gdi32" (ByVal hDC As Long, lpBitsInfo As BITMAPINFOHEADER, ByVal wUsage As Long, lpBits As Long, ByVal Handle As Long, ByVal dw As Long) As Long
+'--- gdi+
+Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
+Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, ByVal Scan0 As Long, hBitmap As Long) As Long
 Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal hImage As Long) As Long
 Private Declare Function GdipGetImageGraphicsContext Lib "gdiplus" (ByVal hImage As Long, hGraphics As Long) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
@@ -138,8 +165,9 @@ Private Declare Function GdipDrawImageRectRect Lib "gdiplus" (ByVal hGraphics As
 Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hDC As Long, hGraphics As Long) As Long
 Private Declare Function GdipCreateImageAttributes Lib "gdiplus" (hImgAttr As Long) As Long
 Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal hImgAttr As Long, ByVal clrAdjust As Long, ByVal clrAdjustEnabled As Long, clrMatrix As Any, grayMatrix As Any, ByVal clrMatrixFlags As Long) As Long
+Private Declare Function GdipSetImageAttributesColorKeys Lib "gdiplus" (ByVal imgAttr As Long, ByVal adjustType As Long, ByVal adjustEnabled As Long, ByVal clrLow As Long, ByVal clrHigh As Long) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal hImgAttr As Long) As Long
-Private Declare Function GdipBitmapGetPixel Lib "gdiplus" (ByVal hBitmap As Long, ByVal lX As Long, ByVal lY As Long, clrCurrent As Long) As Long
+Private Declare Function GdipBitmapGetPixel Lib "gdiplus" (ByVal hBitmap As Long, ByVal lX As Long, ByVal lY As Long, clrCurrent As Any) As Long
 Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal lNamePtr As Long, ByVal hFontCollection As Long, hFontFamily As Long) As Long
 Private Declare Function GdipGetGenericFontFamilySansSerif Lib "gdiplus" (hFontFamily As Long) As Long
 Private Declare Function GdipDeleteFontFamily Lib "gdiplus" (ByVal hFontFamily As Long) As Long
@@ -155,24 +183,19 @@ Private Declare Function GdipSetStringFormatAlign Lib "gdiplus" (ByVal hStringFo
 Private Declare Function GdipSetStringFormatLineAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
 Private Declare Function GdipSetTextRenderingHint Lib "gdiplus" (ByVal hGraphics As Long, ByVal lMode As Long) As Long
 Private Declare Function GdipCloneBitmapAreaI Lib "gdiplus" (ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, ByVal lPixelFormat As Long, ByVal srcBitmap As Long, dstBitmap As Long) As Long
+Private Declare Function GdipCreateBitmapFromHBITMAP Lib "gdiplus" (ByVal hBmp As Long, ByVal hPal As Long, hBtmap As Long) As Long
+Private Declare Function GdipCreateBitmapFromHICON Lib "gdiplus" (ByVal hIcon As Long, hBitmap As Long) As Long
+Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Long, ByRef nWidth As Single, ByRef nHeight As Single) As Long '
 #If Not ImplUseShared Then
     Private Declare Function GetSystemTimeAsFileTime Lib "kernel32" (lpSystemTimeAsFileTime As Currency) As Long
-    Private Declare Function ApiRedrawWindow Lib "user32" Alias "RedrawWindow" (ByVal hWnd As Long, ByVal lprcUpdate As Long, ByVal hrgnUpdate As Long, ByVal fuRedraw As Long) As Long
-    Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, pcbBinary As Long, pdwSkip As Long, pdwFlags As Long) As Long
+    Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
 #End If
 
-Private Type GdiplusStartupInput
-    GdiplusVersion           As Long
-    DebugEventCallback       As Long
-    SuppressBackgroundThread As Long
-    SuppressExternalCodecs   As Long
-End Type
-
 Private Type RECTF
-   Left             As Single
-   Top              As Single
-   Right            As Single
-   Bottom           As Single
+   Left                 As Single
+   Top                  As Single
+   Right                As Single
+   Bottom               As Single
 End Type
 
 Private Enum FontStyle
@@ -190,11 +213,47 @@ Private Enum StringAlignment
    StringAlignmentFar = 2
 End Enum
 
+Private Type BITMAPINFOHEADER
+    biSize              As Long
+    biWidth             As Long
+    biHeight            As Long
+    biPlanes            As Integer
+    biBitCount          As Integer
+    biCompression       As Long
+    biSizeImage         As Long
+    biXPelsPerMeter     As Long
+    biYPelsPerMeter     As Long
+    biClrUsed           As Long
+    biClrImportant      As Long
+End Type
+
 Private Type UcsRgbQuad
     R                   As Byte
     G                   As Byte
     B                   As Byte
     A                   As Byte
+End Type
+
+Private Type APIPOINT
+    X                   As Long
+    Y                   As Long
+End Type
+
+Private Type APIMSG
+    hWnd                As Long
+    lMessage            As Long
+    wParam              As Long
+    lParam              As Long
+    lTime               As Long
+    pt                  As APIPOINT
+End Type
+
+Private Type ICONINFO
+    fIcon               As Long
+    xHotspot            As Long
+    yHotspot            As Long
+    hbmMask             As Long
+    hbmColor            As Long
 End Type
 
 '=========================================================================
@@ -207,51 +266,53 @@ Private Const DEF_ENABLED           As Boolean = True
 Private Const DEF_OPACITY           As Double = 1
 Private Const DEF_ANIMATIONDURATION As Double = 0
 Private Const DEF_FORECOLOR         As Long = vbButtonText
+Private Const DEF_MANUALFOCUS       As Boolean = False
+Private Const DEF_MASKCOLOR         As Long = vbMagenta
 Private Const DEF_TEXTOPACITY       As Single = 1
 Private Const DEF_TEXTCOLOR         As Long = -1  '--- none
 Private Const DEF_TEXTFLAGS         As Long = ucsBflCenter
 Private Const DEF_IMAGEOPACITY      As Single = 1
 Private Const DEF_SHADOWOPACITY     As Single = 0.5
 Private Const DEF_SHADOWCOLOR       As Long = vbButtonShadow
-Private Const STR_RES_PNG1          As String = "iVBORw0KGgoAAAANSUhEUgAAAOcAAACfCAYAAAAChc6MAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAA3iElEQVR4Xu2dCXwUVbr2HUa+uYv+7vUOKpqNJQmQAAJJIBtJQBRxQWRxx2V0vAqK2yzK9bsGRMAFGMEQUBCFYMISEFwAHQkkCEICEUdIgqaTKCiy6ziRhPk43/tUdyUnp9/KqUo6QEzV7/dPU+d93qfb7jye6q7TlfOEELagjW74WlNxPflaU3E9+VpTOdue3h8B3NQ7cBHnPTC/qP3tU3aFjZm8K2H0c4VpKhhHHTqu36V1Mn/+/PYvv7og7KVZ8xKmzcpMU8E46tBx/d4fAdzUO2jLpAvR7ubJxUk3T945cfSkwnQd0N06pTgRfZyfS6uh3YuzMpOmz5w7" & _
-                                                "cdqMjHQd0E1/JSMRfbKP90cAN9m8LTM2ffclo54rHM+FUAf6bp3ytxDO1+XcZkZGRsj0WXPHcyHUgT70m17eH8p2Y/quqJGTizJGTSoqHjW5SPhB46jflF7Y09dSt5nGKqMmfxbt7SkqGDmpUKiQV4HpyfVzJP1+ZXTyg+9kpIxbUzzwoXeESvJD7xSjnvjgKtueA+7Nioq/b+nchPveLiYEQzHqsfctbtTz5ud2DTHDdvOUXaPGTPksyOqwFeOoj3mucHRdz6SiQZwW0Parym8O3l75zeHCqv2Hq6sOHBF+0DjqFV8fvg16zkdl6svzoqbOeHXu8zMy8ulW+PHyqwV0O/f5l16x9Xzifr8oKb+9tMyzo3Sfp5oQDNWol5SUO36cU2dmFE+bmSFUMO70cW7btuOO7dsLC7dvL6resWOnUME46lu3br+9scf50sy5Q8ywvfiXzFEzZ2YGWR22Yhz1F2ZljDZ70G/WvT+kzQjmpKKKUZML" & _
-                                                "a9lg1lFYO3JyoUcNqGksA89R6TsKbppU+PDIqYUdhqV/2l4F46gjpHYCmjR+bfTAcWs8KQ9/UJs64UOR9uhHfmAc9YHj3vHYCWjc79+Ojv9ddkXSAytqkx9c7Rd2I/A0jnr8fdmexPtyWM/0PHH+6MlFzxhBe27n9ZzGCujRN+a5nf9D++wvQcXX3z+0/+AxUf1zjTh9+jQN+W8YRx066GnIz0cGv/DPvzxnCzH+z9OndyDaM3RAferLcwrs/OJ/sffLcV+VV4mjR4+Jf/zjH6K6utoPjKMOHfScj4wRzJkZFRS+U1wwTVAnPHYe57ZtRQ/t2vmZ8JR7xIH9+8W3Bw74gXHUoYOe8yF+RYeozxjBnJHp6HWHHn0vzMqse92NgryNmrxzyajndp7mA6lg6HYu8bUam3lnMpgRR6YXjudCqQId9JyPzMAH12SlPryODaUKdNBzPjLx97+dlfTfK9lQqkAHPedzxwu7g0f7ZsAx6Ts6chor" & _
-                                                "oK/rffELtrfim0O7T9bU0j/1G3TQ0z/9fGSMmcYbTC6UDTACSnrOR6aktHz38eMn2FCqQAc95yND95vFhdEK6DkfmU8/LdpdWVHBhlIFOug5nxczFnU0Z8AXMzIcve7Q1/cuMnqNgrzRrFnCBtGKSTv3+FqNTb5DE8yGFLzfqkG04LcjSM/5yCQ/tKY0dQIfRhXoSL+H85GhQ9ZSOhRmw6gCXfzv3mY9b5myM360L2D3pOf9C6exAnqzFz6cpnL/kRNWM6a6QQc9/dPPRwaHrBQ8qxlTpcPzM17N53xkSveVn7CaMVWgg57zkaGwlXAhtGLqjLna133HjqITVjOmCnTQcz4vzJ4bbwYsfdEiR6879GYvfDBmFOSNDaAGX6uxyXdogveUTAgtgV71UEFAuCBaAb3qoYL3lHIAdUCvegDjFIkvYFxdh9kLH66O95RONp/ez0eGfukFhY4LIgv0qocK3lNyQbQCetVDhQugDtVDBe8puSBa" & _
-                                                "Ab3qAYxTJL6AcXUdZi98sG8MyhsXPh2+VmOT78zEDaczzF43nP5w4dOheqics+FEnoyfvo0Lnw5fq7lhn7zr77S54eQ8EQ4uhFZAL/dzns0Np+kZyHByj7O54eQ8mxtOzrO54eQ8ufDpkPs5z+aG0/QMZDgNTwzKGxc+Hb5WY1PvELgzpzPMXnfm9IcLnw7VQ+WcnTmNH9LGhU+Hr9XY5DszccPpDLPXDac/XPh0qB4qrSacIycVlXEBtAJ6X6uxyXdm4vTTWug5H5nkcWvKHH1aS3rORybx/uwyJ5/WQs/5nIlwOvm01lY4HX5aCz3nI4OwOfu01kY4Z2SUcQG0hPScjwzC5uzT2rMXziwuhFZA72s1NvnOTNraec4x03aGj/YFrFnnOcmH03i+/v5zJ+c5oad/+vnI0EwY8POce0u++tzJeU7oOR8Zut+An+fctq3wcyfnOaHnfGbOXBBuBqw55znhgzGjIG9YnUPhqOSC6Mekoiro" & _
-                                                "fa3GJt+hCTSYDe2sEBoxqSgfes5HBit+aPaqSnn4A2MlEBtK7wohCtOaKjsrhLDiJ+H+7KqkB1YYK4G4UPpWCAnorFYIjcn44oLRvoA1dYUQGDNz679ympJ9VY84WSEEPQ35+chgJY2x8scb0ICsECra9bcJTlYIQc/5yBiPc2ZGJRdEf16tsvM4N24smOBkhRD0nE9GxvIL6sLZ9BVCz760ePG/Y8woqBvCMWpyYS7NihVcKCm8HtTVYGKT71AGWsyICCneU6oYa269de2TaeIN6JrcgePWerggYRx1J2trsWY2/r7s3IT7cjx4T+nH/TnlqOvX1haNGG2G7LnC0XbW1mINrtmDfk4LaPtN8ef77imv+n5nY2trUf/8i333QM/5qBi/+DQj+tbQetfTSvjW3DpZs/qbbdt23rNn75c7S8rKf8ZhqwrGUd+2o9jZ45w5J5cei4cL5dQZGR7UnTzODz/8+J5t23bsbGxtLeofffTxvY09" & _
-                                                "zhdmzR1hBhRrZu2srcUa3PqeuXWvu/dHADfTuK2DwN383M4mfyvFKsgu5zYI3Asz540zw+YEfCtFDrL3RwA309jF+33OMZN3pdYtgteA73Pi+5/o4/xcWg3tXpw5N9VcBK8D3+fE9z/RJ/t4fwRwk81dvGAWdK+E0PbALNjsKyHYwZs7vtZUXE++1lRcT77WVM62JzvIcbYfqF1cT77WVFxPvtZUnHiygy6B5YGimPZPftwj7LF13ROINIYE1KHj+l1anqKYmPafdO4Rtimse0Jep+5pKhhHHTquvyVgB10CQ7pIb/fYh92SHl/ffeJj6yLTdUD3xIbuiejj/FxagPT0dvmh3ZIofBPzQiPTdUC3Oax7IvpYvwDCDro0nyc29Ax5bH3keC6EWqgP/ZyvS+DY3LVnSF5Y5HguhFqoD/2cb6BgBx/5IDzq0XWRGY9uiCh+dH2k8IfGqT7hva62T+6bno+sj8ifsC5CqFC9wKnnDZM7Rt84" & _
-                                                "pWPGiOcvKx7xfEfhz6XFqEPH9XMM/fN/RV/z1MUZwyZeXDzsqYuFH09fXIz61X+4qNHH+dj6HkPMsD2xvvuoxz+ODLI6bMU46o9t6Da6PqA96i70xLExNDx6U0hkxubQiOJNoZHCHxqnel6I/eezzjM4oiAvJEL4ERxe4NRz3n91jMq4JChj7iXBxXMvDRF+0Djqr/6X/ddoOmlf6hA09+UOwcUvXxws/KBx1F+66NJGH2deaI8hZtjyw7qP+jgyMsjqsBXjqOeFdhtdH9LGX6PvNl4RfWhzv4zDm2OKCaFyaFO/z1A/mNebfZx+A94QRVRMWB9RywfTC+qEx06Y4Dnhg65bHl7fdfwDy7t0INozdEAdIbXjicCNmNqxYvTLl9fe8kqQuHV2sB8YRx06OwFFMCl8Fdf/7yW1N065lAl7R4Fx1K99+mKPVUDT89LOf3xdt2eMYG7o7mgZF/RGODd0s7zAF0JEYamgANb6h1KG6iERHjth" & _
-                                                "gufG4K5b8oK7jv/ooi4diPYMHVDfSCG144lgZl4aUvH6pWG1b3YME29d1skPjKNOQfXYCSiCOePioIpXLg6pzbgk2D/sBMZRn3FxsMcqoHlpaefnhXV7xhsyZ68R9OjbHGb9GhnB3NSv4vCmfrVcMOug+qHNMR4uoA12AM1iWVwYrYBe9VDBjOgLJhfKBkAHPecjc+PUS7MoeGwoVaCDnvORGfZUh6wbnr2EDaUKdNBzPn/K6x1szoB/fD/K0QJo6Ot68/jevNCILD6MPNBzPjLGjOgNJhfKBkAHPecjk3lJcNaCjqFsKFWgg57zkaFZMesVi1CqQAc955MX3ju4bgbs5Ow1gl7Xe3hzvyw2jJb083ucDXYAzYYlXAitmLA+XHsBJcyGFDyrGVOlwyPrwrUXj6KAlFrNmCrQkX4v5yNDYSu1mjFVoBv2dAf2v/2Jj3rEmwGjWdTZhZ5Ib/bCh9PQjFjChdCKzSH61wiHrBQ8qxlThWbQ" & _
-                                                "cO1XxjIvDS6xmjFVoJt7SYj2cc7oEFRiNWOqQEfhZD3zOvWIrw+Ys9cI+vpe/jWiWbOUD6EV/fweZ4MdwAVQh+qhgveUTAgtgV71UEFAuCBaAb3qoYL3lHIAdUCvegDv6RFvwLi6DrMXPlydC6AO1UMF7ymZEFoCveqhgoBwQbQCetVDBe8p5QDqgF71AMYpEl/AuLqO+nDyrxEfwMZRPRrsAC58OlQPFTecznDDaU2bCqe6YoELnw65H36qZ3PDyXkiHFwIrYBe7uc8mxtO0zOQ4eQeJxc+HXI/59nccHKeCAcXQiugl/s5z+aG0/QMZDi5x8mFT4fcb3jKA4ALnw7VQ8WdOZ0hh5Orc+HToXqouDOnM+RwcnUufDpUjwY7gAufDtVDxQ2nM9xwWtOmwzlhfcQ+LoBWQK96qDj+tJb0nI/MiKkdyxx9Wkt6zkdm2NMdyhx+Wst6tng4QyLLuABaQnrOR6YlPq2de0lwmbNPa4O1j3NG" & _
-                                                "h6AyJ5/WQs/5nIFwlqnh0+D3OBvsAJq13POcTBhVGjvP+fj6qHAzYM05zwkfTuOe57QXzkbPc3aNCq8PWDPOc5IPp2mZ85zvde05YV1kJRdEFZo1q+ys5oEGs6EvoIFcIVSF4FnNoBhHHTo7K4Sw4odmw0oEz2oGxTjq1z7docp6hVDUBWbAmrxCaF3ks3/Y0Nu40JMKVudsComo4oLoB+nsrOaBxlj54w1oQFYIYcVP5qXBVQie1QyKcSOYpLOzQggrfmg2rELwrGZQjKMOneUKoaioC+oC1sQVQsSzu3vzrxFW/Bze1K+SD6JKvypbK4QAwvHouojcCesjPWogwYQNER6jbiNEJl7PyAwjfPSeUgVrblF34ukLaC7h4YI0EuNUtxNMEwTu2qcvzr124sUevKdUwTjq2rW1GyJHmAHFmlk7a2uxBre+J9LyAl/AF9BcmsE8XCg3h0R4ULcTIhOvJ2ZQhM9/bS3W3Bp1B54IHB2u5s67" & _
-                                                "JMTDBckYp7qTtbUI3MsXB+VieR7eU6p4x4NytWtrO0WOqA9ot9F21tZiDW5dD/VzWhME7tCmfrnGMj4mlIc296tA3fbaWpfAMB+B2xA5ri5sTlgfOR79nK9L4EDgNoVFjqsPqAPCIsdbBTlQsIMugQHfy3z8w+6pj2/wLoLXYXzv88NuSe73Oc8g+D5np+6p9YvgGwff58T3P93vc/5CwGGreyWEcxvMgq32SgjqCohA4HrytabievK1pnK2PdlBjrP9QO3ievK1puJ68rWm4sSTHWzT0KHl8U8Sw45+0j/hcEFsmsrRTf0TUIeO7XdpcR4oEu3ve//nsLtW/Zhwz+rjaSp3rTqagDp0XH9rgR1sm6S3O5Yfm3QkP3bi4c2x6TqgO7o5LhF9vJ9LoEkXot3da35Muiv3xMS7co+n6zkx8d53fkxEH+d3rsMOtjUoZCFHNseO50KoA33o53xdAse971SH3L3q2Hg+hI2DPvRzvucy7GDd" & _
-                                                "hYkK+uYf3twPKxgacGhT34LGLkzEsf618Oi/vhaZkfd6ZPHHr3cTKhtpHPUNmfZPcK+cGR79zivhGWvnhO9aMztC+DEnohj1Va807nmkIHaIGbaj+bGjjmxNCLI8bKVx1A/lx46uCyj1s1oft608Gn3XymNz71p1vJh+WYQfK2mc6mNzjtn+bzc978w9kT925TGhcufKYwVOPQe9+l30oHlHMq6cf7R48LwjQmUQjaOelnnQtmfSzKrolFf2ZwycfeCzlNn7hcrA2fs/Qz3xla8b9bzrnRND6Lnyhm31iVF3vXskyOqwFeOo08w52uxBP6c1qampiTp5sjajpvZUMf6mqUpNTW2xUa+psb1YwvT8uaam4OeTNUKl+ueagsY8/QYQzMP5fQuObOo3/uin4b8l2jP8FnWE1E5AEcyNC7pVFLzZvfbTrB5i+9IoPzCOOuk8dgKKYK6dE+FZnxlZS6H2CzvAOOrQWQc07fxDm+OeMYJW0N/R" & _
-                                                "Mi7ofeG0vNATQjR25QkPBbDWCKIVVB+78rjHTpjgeceKY1uI8WOWH+tAtGfogDpCascTwaQAVgx5/Ujt0IVHxDVvHPUD46gPmn/YYyegRjBnH6hIzfi+dlDmYb+wA4yjTjqPVUDT88T5d+cef4aep/S7Vh1z9BpBj767V52wfI0QIgpLBYWwVg2lQi10dgIKz+qff95CwZxw7NixYOI/GIJRJ10B59lgB2BG9AWTC2UDjICSXvVQyVsQuWTLm93ZUKpABz3nI7NmdngWBY8NpQp00HM+Rz8dEGzOgIfy4hwtgIbe7P1pB987NvdYVoMQaoCe85HBjOgLJhfKBkAHPecjM3j+kSVXvc6HUgU66DkfGQpcVlrGQTaUKtBBz/nc/0F1MD03xgx4z/KfHL1G0Nf1vs/3UuaWMEG0BHrOR8Y3YyKYXCgbAB30qkeDHYDZkIJnNWOq/BZ61UOFDllLrGZMFeg2vhahvdDT2tkRJVYzpgp0a2fz" & _
-                                                "F7k6umVAvBmwCocX44Le7IUPp6FDzFKEzi6k1/63Yzak4FnNmCod7lxxTHvBNApIidWMqQLd4HlHtY+TwlZiNWOqQEeHvqznPWt/iKfnxhuwPOHoNYK+rpd8OA0FrkQNYGNQOLX/7ThkpeBZzZgqwTRz+r1GDXYA3lMyIbQEetVDBQHhgmgF9KqHCt5TygHUAb3qAYxTJL6AcXUdZi98uDoC5xTVQwXvKZkQWgK96qGCgHBBtAJ61UMF7ynlAOqAXvUAxukRX8C4ug6zFz5cnQugDtVDBe8pmRBaAr3q0WAHuOF0hhtOa9xw8kHkYMOprlhobjjhp3oiHFwIrYBe7uc8mxtO0zOQ4eQeJ8LmFLmf82xuODlPhIMLoRXQy/2cZ3PDaXoGMpzc4+TCp0Pu5zybG07DUx4A7szpDDmcXB1hc4rqoeLOnM4we1vdzKkOuOF0hhtOa9xw8kHksBXOlvm0tluZo09rSc/5yKydHb7P4ae17IXI" & _
-                                                "WjqcY3OPlyFwdoGe85Fx/Gkt6TkfmcHzj5Q5+rSW9JyPzMDZB8ocflrLerZ0OCkY+7gAWgE95yPj9NNa6FWPBjugrZ3n/GFrQrgZsOac54QPp3HPczb/POd9a34Ip+fGG7BmnOeED6dpNec5vdc9CewKIaz4oZBUIXhWMyjGUd+4oFuVnRVCWPFDs2EVgmc1g2Ic9bVzwqssVwh9kXaBGbCmrhAinhW7r2Yv9ITVOXRYWYXg6YDOzmoeaDAb+gIakBVCWPEzeN7hKgTPagbFuC+YVXZWCGHFz8DZ+6sQPKsZFOOo06xZZbVCaFyeuICeHyNgTV0hRDz7hw2CfY2wOufkyZpKLogqNGtW2VwhFI2VP76ABmaFEDACSjMiwof3lH4U9M1H3cnaWgRu44LIXCzj44JEs6UHdSdra42Azuma++6cCA/eU6pgHHXt2tr8/iPMgGLNrJ21tViDa/agn9X68Ab0eC4dsnoQQgaPUbcRIhNoMSMa" & _
-                                                "4aP3lCpYc4u6E09vQI/kEhVygEwGvXbMQ7e5TtbWInD0XjI3Zc4BD95T+jHnW4zn6tbW0iHpCHqevAHFmlkba2uNNbi+HvRzWhMjoDU1uRRAjxpIUGOM1+TaCaaJ4UkzIg5Z8Z7SjxqHa2vbJEUPtD9SEDfODJsT8K0U9LO+LgHDCNw7P4yrD6h98K0UqyCfy7CDbZP0dsfz41KPmIvgNeD7nPj+p/t9zjNHuhDt7l3199S7V//gXQSv5cREfP8TfZzfuQ472Kahw1bjSgibLK6E8Il7JYSzDWZB75UQjlpcCeHHtnUlBHUFRCBwPflaU3E9+VpTOdue7CDH2X6gdnE9+VpTaS2ev0TYwVYEDlvCTp06lfDzqVNpKtU0jrpPx/W7tDAxDzzQPnHw4LDExCsT4pPT0lT60zjq0HH9bRl2sBXQjgKZVHPq1MSfa2rSdUBH+kT0KT4uLUR6enq7+IGDkvonDZrYPzEtXQvpElIGJ6KP82uL" & _
-                                                "sIPnOCEna2vHcyHUgT70K34uASYl5eqQAclp49kQakAf+jnftgY7uOfLquh9Ffvnfln1bfGXlQcEQzHqe79q/MSxzGd7voz+osyTsXdfZfEXZRVCZc++Chr3ZOze+1WjnidPnRpihq3mn/8cVV1dHUTjVodE7VGvrqkZXRdQ6md0dfQdMDAqLj41IzYhbVdcYppg+Az1uLhBtk9G13nGp+bHJqQKlZiE1AKnnqGh4dEhncMzQjuHF4d2CRd+0LhRJx3Xz9GxY8eojpcHZVx2eWhxx8tDhMqllwfTeFAG6Rr1pMPVIXVhSxw0KmHw4CCrw1aMoz4gMW202YN+TtvW8BtAML+qPFBR8fXB2q8PfC+++faQHxhHnULqsRNQBHNPWUVFaXlVLYWaC7vAOOoUVE8jAT2fAvaMEbKTJx0t44LeCPSpU/9D++yFnowQJaRWUGBqmVDWgTrhsRMmeMbEp26JSUgZHxMT04Foz9AB9dj4lHw7nghc" & _
-                                                "aJeuFZ0jutV27RYlwrtH+4Fx1CmoHjsB9QYzpCIotFNtSOeu/mEnMI466TxWAU1LSzs/PjHtGSNoyWmOXiPofQG1fI3aEn4DFJSsim++Y0OpAh30qofKnrLKJaXlX/sFkgM66DkfAmsRjRnwp5+cLYCG3uylfbY3NjFtCRdGK6DnfGQwI/qCyYWyIaSDnvORoVlxSeeI7mwoVaCDnvORufSy0Kyg0M5sKFWgg57zGZCWFmzOgHFpaY5eI+jNXgq5o95fIn4DX1Z+W2I1Y6pAR4e+2osd0SFridWMqQId6VnP2traeClgji70RPyL2Qsfpn4eHcqWcCG0gmZE7X87DlkpeFYzpkqHmAGp2q93UdhKrGZMFehIv5fzkel4eXCJ1YypAl3Hy0JYzwFJafFSwBy9RtCbvfDhNG0JvwEEhAuiFdCrHip4TykHUAf0qgcwTpHUh9OvrsPshQ9X5wKoQ/VQMd5T8kFkgV71UEFAuCBaAb3qoYL3"
-Private Const STR_RES_PNG2          As String = "lHIAdUCvegDv6RFvwLi6DrMXPly9LeE3gHBwIbQCetVDxQ0nH0QON5xuOE38VmsgHFwIrYBe7oef6tnccJqegQwn9zi58OmQ+znP5oaT80Q4uBBaAb3cz3k2N5ymZyDDqT7GtobfAMLBhdAK6FUPFXfm5IPI4c6c7sxp4jeAcHAhtAJ61UPFDScfRA43nG44TfwGvqo8UObk01roVQ+VPWUVZY4+rSU959Pi4YxPLeMCaAnpOR8Zx5/Wkp7zkQnpEl7m5NNa6DkfmY6XB5c5+rSW9JyPG87A4TdAATlnz3OeFCLcDFhzznPCh9O45zmbf54zIS0t3AxYc85zwofTtCX8BrDi56vKbysRPKsZFOOo06xZZWeFEFb80GxYieBZzaAYN4K5r6KqkRVCF9QFrIkrhIhnaZ+90BNW59BhZRUXRBVDZ2M1j+EZn5LvC6jVDNqEFULhlQie1QyKcdTDuoRX2VwhFE2HqlUIntUMinHUoWtkhdAF" & _
-                                                "ZsCasULo2auv5i+Y1pZgB30Bzf2y6lsPF6Tyr7/1oO5kbS0CR+8lc7/YV+nBe0qVvd7xXN3a2pp//nOEGVCsmbWzthZrcM0e9DO6OhCOuITUXMLDhjJxULlRtxEiE8PTmEFTC/Ce0o/41HzUnXgicCFduuZSaDxqiLxEVBh1G8E0MQIaFJJL4fPgPSWDx6hr1tb2H5g2wgwo1szaW1s7aJTZg35O29ZgB89x2p+srR1nhs0Jvm+luN8bbGEeoMANSB40ri5sDsC3UtDP+bY12MFWAL7PmVpz6pSxCF6H7/ucSehTfFxaCHwvM2HgoNT4ZN8ieB1Jgybi+5/u9znrYQdbEfg/bBiueGB8kquAKySg7tNx/S4tDA5bcaUDXPEAn8Cq4AoJ7pUQeNhBjpZYreF68rWm0pY9f4mwgyqBfDJdL2e4Xs44V72aAjvo4tJWufol8e/J06tDk6aL6MSpIgG3KVNECMY5fUvCDrq4tDXShWiXPE10" & _
-                                                "SZgqUuOfO5WmgvHkaSe7pKefuQ8V2UEXl7ZEWoa4IGGK6M+FUiVpSm1s0gviQs4n0LCDq1evvuyddz/Ysyx39am3l60UJtjHOOpcH8fChQsvXLpsZebSZSs8shf2MY4618cB7eKs7MzFWTmexUtzRB3Yp3EnXlu2bLlwy/aizC3bCz2fbC8SJtg3xqnO9XEMXzj8wuHLbsocvnyk58blI4UJ9o1xqnN9HN1+l3RhwpMDMxOeTPEkPpkiTLCPcdS5Po5uw7td2HdsbGafsXGevnfFCRNjn8ZR5/o4/tSh24XpQT0y04N7eNKDo0Q9tE/jqHN9HONDul32VI+YPX/s2f/UH/skiDpoH+Ooc30c913ePXxcl57H7u/U4/TvwnoIE+xjHHWuz2TMcvHr5KliABdEK6A/EzOo38D69R/+96o179UWf75XHPjukDjx4z/qwH7x7j1i5Zp3a9/bsOE2tVclO3tF4vLcNeWNeeXkri5fkpODv13P" & _
-                                                "epi8mZWVtDR7RfnHeQVie+FOUfz5njqw//HGfIH6W9nZfbl+mfxthUlbd+ws91QdEN8fOSFO/L26DuyXV+4XqG8tLNR63Zh9Y+KIFSPLb/n4NnH71jvF2KK76sD+LX+9TaB+fc5I7X9j/GMDk5KfSim/7q0bxKgNo8WtW2+rA/vXvnW9SPpzSnnCEwnax9XnjtikmHv7lydPTBVpUweLwTOvqgP7yRNTBOq974zRPq7/e3m3pEnBUeV/CY4WmUE9xevB9WAf46inX95D6/WnyL4PTuyVULss/mqRP/B6UZw2oo7NtJ+dcJV4uld87VMRfbW/Xw936fnSg52iTz8X1ku80qm3yOx0RR1/6dRLTO7UU6A+oUuviVw/SJgmwtXwJUwWvaLSxQXnUXBxi31Vg0Ngzi+Q+A2sfW/d5p2ffd4gSCpFxbsFdGqvyts5KyfZ8YKO65eh2XHSRxs3i8/+tld8/kWJ+HxPifjb3lLjFvsY/yhvM2ZR" & _
-                                                "rdfWHUWTvqr4ukEoVb70VFFAi7ReN+bcNGnMh7eIOwvHWjJmwy0COq5fJuHxpEnD3rhO3PoJBdKCYQuvF9Bx/TJXjI2ZlPjUQCOMVyKUs4i/eG+NfSLx6RQBHdcvMymox+RZQdFiAYXRillBUQI6rl/mqe798pfGX0lhvNGSrPghAjquX4Zmxqpnw6LFvM5XiPkUSBWMp4f1FNBx/UOmi/+QAxc3RaTEpItQTtt3ys9hqMt69HPaQOE3QIeuNftpVjtOwbHim2+/FzQjVqu9KlnLVpTa8crKWfkZ1y9DoSst3FlsBHJv2ZeitOwrUbqv3LjFPsZ37NyFcGq96NC19NDRhjOmCmZQOrzVeg3PGVF62ye3izt3UBAtuG3LHWJ4zk1ar4THkktHrh8tbtlyqyUj140S8Y8na736jI0tTZ1+pRHIK2dfLYZIYB/jadMGi75j47RezwX1KJ1P4VtIIbRiHoV3clCU1uuP0XE1m5OvFbtSh1uy" & _
-                                                "iep/jI7V/n7h0PUvNGsiiK936iMW0q0J9jGO+u87R/0/rn/gVBElh63/ZHEFpzMZ8LzoLesTporunC5Q+A3g/eDxHyg4GrKXrzyt9qoszVl5kutVWZqz4gTXL/PW0pyTe0r3GWHcV14pMPOVE7jFPsZRp/egWi8K3UkukCr0HlTrdUP2iJN3bL9T6BiefZPWK+HRgSdvyacQaqDDX61Xn7tiT175ii+Qrw4VV2XUg30jpFTve1es1mtKcNTJN4J7CR2k03o92StO7Eq5QcsfesVpf79+F9adQugN4xsUxjdB2BXGLfa9Ib1C3Ec6tRckTRGxcth6TRMXcToT1GV9/PNCexjfHPwGKFBsgFSgU3tVAumFD34QQBxuVlR9I77+5ltRtf874xb7GEcdOrVXBR/8cGFUgU7tVRn+9k3ijk8pgBqgU3tVaOYUN2++RQt0aq8KPvgxgolAzh0qrp53jbhq/jXeW9rHOOrQqb0qU+g95SIKnw7o" & _
-                                                "1F6VP/QeIHYOvEELdGqvCj74QQAXURAXE1nEEt8t9jGOOnRqL0ieIpLlsMXMb3yZJ+qyHv2cLlD4rYJoaqDg05JeCN2+ryqEp/IbI5T76XD424OHjVvsYxx1NZycV1PDyXndsHSEuH3bHVqgk/s4r4RHKZybKIAaoJP7OC+E7irMmBREI5SvXSOGvj7MuMW+MU51NZyc15QQCmcIBVADdHIf52WEM/l6LWo4OS+EDgF8iwKIUC4lsn232Mc46mo4TS85aEDWWKH2qI8pkBgPVB7Iylkhjv3wkxbo5D74tKQXQofZseqbA0Ygv/v+iDh46KhxawSUxlE/K+HcSgHUYCec8RS6MXk3a4FO7uO8jJmTZkfMlGYwhy4gfAHFOOp2wvk8he5NCp8O6OQ+zuvJ3v1FUfJ1WqCT+zgvM5z1wewrcgjcmgF1w0nApyW9EDq8v8RhLE7DIJiHjhw3brGPcdTPdDivz7pR4AMhHdDJfZxX/AQK50YK" & _
-                                                "oAbo5D7Oy5g5feEc+po3mNcsvNYbUNo3Dm9thnMqhe4tCp8O6OQ+zuvJXhTOJAqgBujkPs4LocP7SxzGvk0gmMt8AcU+xlH/ZYXzBIVGg+1wMr0qdsNZToeuX9MhLA5n5XBiH+Oon/FwLqFwbqEAaoBO7uO84ickidEfj9ECndzHeRnhnEszJB3CmrNmXTgxexqHttfYCue0kJ5icUhvLdDJfZwXQleYeK0Wp+HE4awcTuy74fQBn5b0MsOJ95cI4/eHjxnhxC32MX42wnnd4uHi1oLbtEAn93Fe8Y9QOP9KAdQAndzHeZnhxPtLhBHBNMG+932nvXBOp9AtofDpgE7u47ye7BknChOGaYFO7uO8zHDi8BVhRDBNsI/xX1w4j1JgdNgNJ9er0qrD+RaFM58CqAE6uY/zMsL5EQVQwxkPZ2hPkRXaWwt0ch/nZYQz/hotbjiNx4nb+gE3nPXYC+cN4pbNt2qBTu7jvAY8nCRGfThaC3Ry" & _
-                                                "H+cVyHC+QKFbSuHTAZ3cx3k9QaHbQeHTAZ3cx3m54bTADaeX696kcG6iAGqATu7jvAaMp3CupwBqgE7u47wCGc4XQ3uJt0Ov0AKd3Md5PREdK3YMGKoFOrmP82p74cymQB2n0GiATu6DT0t6navhvPaNG8TNG2/RAp3cx3kNGJ9oLM/TAZ3cx3kFMpwvUeiyKXw6oJP7OC+Ebnv/q7W44TQeJ27rB5ZQUI4c/7sW6OQ++LSk1zkbzoUUzo8pgBqgk/s4rwHjKJwfUAA1QCf3cV6BDOfLFLocCp8O6OQ+zuuJqBixPe4qLdDJfZyXG04L3HB6wbdExvz1Zi3QyX2cV38K3U3vj9QCndzHeQU6nMsofDrshPNxCt2nsVdpgU7u47zccFrghtPLsAUUzo8ogBqgk/s4r/4PUTjfowBqgE7u47wCGs4wCmcYBVADdHIf5+UN5xAtbjiNx4nb+gE3nPXYCec1r18nRn84Rgt0ch/n1f+hBDHi" & _
-                                                "3Zu0QCf3cV6BDOcMCt3ysD5aoJP7OK/He/QT22Ku1AKd3Md5tblwLn57hTh87O9aoJP74NOiXudqOF+jcG6gAGqATu7jvPo/mCBGrKUAaoBO7uO8AhnOmRS6FRQ+HdDJfZyXEc5+g7W44TQeJ27rB9xw1mMnnEPnX8ue7lCBTu7jvOIodDeuGaEFOrmP8wpkOGdR6FZS+HRAJ/dxXo917ye29h2sBTq5j/Nyw2mBG04vRjjXUQA12Arnf1M436EAaoBO7uO8AhlOXE0gl8KnAzq5j/N6rHtfsbXPIC3QyX2clxtOC9xwehk6bxh7ukMFOrmP84p7IF4MX3WjFujkPs4rsOHsLVaF9dUCndzHeSF0n/RJ0+KG03icuK0fWPz2cnHo2I9aoJP74NOiXudqODMpnO9TADVAJ/dxXkY4cymAGs50OHFlu9X0C68DOrmP83qsG4XzCgqgBujkPs6rbYbzKIVGg+1wMr0qrTmcV88dxp7uUIFO" & _
-                                                "7uO8Yn8fL25YOVwLdHIf5xXIcM6m0L1Dv/A6oJP7OK9Hu/URW3qnaoFO7uO83HBa4IbTy9UZFM53KYAaoJP7OC8jnCsogBrOdDjnUOjW0C+8DujkPs7r0UgKZ68ULdDJfZyXG04L3HB6uSrjGvZ0hwp0ch/nFXv/AHH98hu0QCf3cV6BDOerna4Qazv10wKd3Md5PRp5hSjoOVALdHIf59XmwvkWBeV7CowO6OQ++LSk1zkbzlcpnGsogBqgk/s4LyOcyyiAGs5GON+l8OmwFc4ICmc0BVADdHIf5+WG0wI3nF6GzBnKnu5QgU7u47xi7hsgrsu5Xgt0ch/nFfBwdqYAarATzgkUuvzoZC3QyX2cV9sL51IK1BEKjQbo5D74tKTXORvO2RTO1RRADdDJfZyXEc5sCqCGMx3ODArdexQ+HdDJfZzXhIjeIj8qSQt0ch/n5YbTAjecXnDVdO5cpAp0ch/nFfO7/uLat6/TAp3cx3kFMpxz" & _
-                                                "KXTvU/h0QCf3cV4TwnuLzT0StUAn93FebS6cby5dJg4e+UELdHIffFrS65wOJ3MuUsVWOO+lcGZRADVAJ/dxXoEMZyb9gn/QOUYLdHIf52WEszsFUIMbTuNx4rZ+wA1nPbbC+Zer2HORKtDJfZxXPwrdsCXXaoFO7uO8AhnOefQLvo7CpwM6uY/zeqRrL7GpW4IW6OQ+zssNpwVuOL1cOYvCyZyLVIFO7uO8+t1D4VxMAdQAndzHeQU6nOspfDrshzNeixtO43Hitn7gzSwK1GEKjQbo5D74tKTXuRpO/J1L7lykCnRyH+fV7544cc1bFCQN0Ml9nFcgwzm/cx+xoUuMFujkPs4LocuLjNfihtN4nLitH0BQvqPA6LAbTq5XpVWHcwaFkzkXqQKd3Md59bubwvkmBUkDdHIf5xXIcL7Wua/4sEusFujkPs7rkS49RV7EAC3QyX2clxtOC9xwehk0Ywh7LlIFOrmP8zLCuYiCpOFMh/N1" & _
-                                                "Ct1HFD4d0Ml9nJcRzvD+WtxwGo8Tt/UDbjjrsRXOlymczLlIFejkPs4LQRn6BoVJg51ABTKcCyh0f6Xw6YBO7uO8Hu4cLTZ2jdMCndzHef3iw6kONDVQHIH0MsNp/iEjNZxWf8iIo6nh5Eh76Ur2XKQKdGqvihHOhRQmDWqgOMxwmn/ISA2n1R8y4kDoPqbw6VDDydHUcHKY4TT/kJEaTqs/ZGSSMEUkykFz+sdz0c/pAoXfwJKc3BrPN9+zITLxfH1QQKf2qizKWlZqxws6rl9mcVZO6d6yr4wQsn8CkMb3ln4poOP6ZbZsLyw9fOwHNpAmqEPH9cukvTC4FB/SXLuUQmgB6tBx/TJ9xsaWDpl7FRtIkyEZVwnouH4ZaAbPGuINJ/cnAGl88MwhtrwWdOpTuqFzPzaQJqhDx/XLPN4pqub9LjFsIE3eozp0XL/M/WHdT88P62WE0OpPAKIOHdc/8HnRWw6b0z87j35OFyj8Bpbnri0r" & _
-                                                "2r2XDZJJ4Wd7BHRqr8qbS3IW2PGCjuuXeSsre+GnO4qMv8Np/vFczJrmH8/F+LbthQI6rl9my/aiBRWk50Jpgjp0XL9M2gtXLrj69aFsKE1Qh47rl+k7NnZB6tRBbChNUqakCei4fhloUiYPavDHc+tmTd8fzx2Ybs9rYee+C9ZoAoU6dFy/zFOdossWdenLepi8QXXouH6ZB8N6nHixkzec5h/P9c6afY19jL9Adei4/uRpoosctgGasPWfLK6Q9ejndIHCb2DFinc756xYc+rzkq/YMGE8Z+WamlWrVoWpvSpz5y69KCtnVUVjXlk5uSWLFi36T65fZtGi1f+5NGdlxc7dfxNfHzhozJYIpjFr0j7GqW7Lq6Cg4KJPdxRX7KdeLpj7vzsstu7YWZKXl6f1Sp6WfFHay4MrEBwumEMX0qz50uCStPQ0rVev23td1O/e/hWk9wslGPTiYBFzb1xJnxF9bHnF3DugImXaYJolvbMlgumd" & _
-                                                "NYeJVBqnui2vuaG9LlrUuU+F1Yz3Ps2cb3TqWzKrk97rf0MjOv+5U9Spt7v0Y72yjWD2rPlTp27a36/HQ7v0eZBmxVlGQL2zJYLpnTX7Ghcce7BT1OnHLo/Ap0t+/dfPF/+WOEWkyIGLSa8O5bTx6T93knUJU0+lXp8u/o3TBgp2cPXq1Zcty127Jyt75Sm8HzTBPsZR5/o4Fi5ceOGiJTnz3lyyzCN7YR/jqHN9HNAuzsrOpENXD95b1oF9GnfitWXLlgtpZsykQ1cP3luaYN8YpzrXx5H0QtKFdNiamfrilZ60F68UJsY+jaPO9XF0G97tQprNMvuMjfPg/aCJsU/jqHN9HIH0yrg46oIFXfrOW9C5j2chBcgE+xhHnevjeLpD945Pd+q5hw5dT+G9pQn2MY4618fxcIfuXceFRh27j0KK95Ym2Mc46lyfSfw00SB0IG5ybVxcuugYPlv8BrfYVzXJ0wUb4kDCDrq4tBXS00W7hCmi" & _
-                                                "vxq+xkiaUou/svQr1SvQsIMuLm2JtFniP7kQciRMFalJLwjbRxzNgR10cWlrYAZNnnayC8JnFUp8AAQd198SsIMuLm2Vq18S/54yRYQkTRfRiVNFAm6Tp1eHYpzTtyTsoEogV0G4Xs5wvZxxrno1BXaQoyUeqOvJ15pKW/b8JcIOurgEEhwS4tDQPFTEezjzkBGHkGfjkLE1wA+ed96v7ML1c6h9jcH1c6h9jcH1c6h9jcH1c6h9jcH1c6h9jcH1c6h9jcH1q6QLfMgiLD9kMfF+2HLyjH7Y0hpouMO8CHaRfWRUnRM4P6DqnMD5AVXnBM4PqDoncH5A1TmB8wOqzgmcH0jLEBc05fzhmTpN0Rqo/4f0hFd+c/D2ym8OF1btP1xddeCI8IPGUS+vPHi73Ccbq54zckrmjJ+9+6dbny8Soyb7g3HUXyCd3NeY5xvbn5jz3MZrfnpyQ0/x6PpIPzCO+mvb/tCopwlqx957ac6xtx766Ye5" & _
-                                                "I8WPr97gB8ZRP/TuS4Yn5wNQM9n18BNztqZe89Pm8J5iU2ikHxhHvfDhxh+nXDu46+k5328b9dOh/ARxeHOMHxhH/cCu/7Ht+WHmd3OWT/zup7ceOiAW/f5bPzCO+nrSyX2q55jl4tfJU8UALoA60OfOoF68P6Qnurzyu3H7Dx4T1T/XiNOnsZjff8M46tBBL/dT2c9z6tK92VwgrYBe7uc8M7dNyOYCaQX0cr/pKXPonanZXCCtgJ7zke9nxwMTsrlAWgG93M95Htj5p2wukFZAL/dznh/M+S6bC6QV0Mv9pidImCbC1dAlTBa9otLFBedRcI37plvsY1zVtvSC8taC90f9k9yu4ptDu0/W1NKwfoMOevSZHjTs5/nQK7uruRBaAT36TA/Oc1LeVdVcCK2AHn2mh+kpc/zNB6q5EFoBPedj3gfR7pPkq6q5EFoBPfpMD87z+60jqrkQWgE9+kwPznPZU99VcyG0Anr0mR6m55Dp4j/k" & _
-                                                "oMVNESkx6Y2vQ+075ecw6OQ++HDatoT3R/2L9OvK/UdOWM2Y6gYd9OgzPWjYz/O2qTtPcyG0Anr0mR6c55Mf9j7NhdAK6NFnepieMj/MG3WaC6EV0HM+5n0Qv86P7H2aC6EV0KPP9OA8D+UnnuZCaAX06DM9OM/F4749zYXQCujRZ3qYngOniig5ZPialVlrDHxdS+5LmCq6c7q2hPeH9wnG/wXPx3tKJxv06PP1qy/8Oe8p0xRP2vx84O+7nzb3fCZNEbFyyHRfYDZRv8gc/7zox+naEt4fzX+R2vv6A/nCnxFPmaZ40ubnA3/f/bS55zN5ikiWQ6a79IeJegkQ+HC6tgQ2/DRfpPbNfZEI7LcaT9rqnoymeNImP5kt9jh9/z7nPeWAAZLWPT861F74qZq2hPdHAF8kGmpVnjJN8aTNzwf+vvtpc8+n04tmmZzpi2e1Brw/WskLj3/7xgLmKdMUT9r8fODvu58293w6vWiWyZm+eFZr" & _
-                                                "wPtDeZGcfFpr94U/Vz1lmuJJm58P/H330+aeT6cXzTI50xfPag14f9S/SOc38Txno58EnsueMk3xpH/6+cDfdz9t7vl0ctEsk7Nx8azWgPeH90UC55fsq3rEyQoh6NFnelC5VXnKNMWThvx8zPsg2uTzqbtoFjRn++JZrQHvj/oXCSeV/8/uL7662/P1oaLG1tai/vkX++6B3tfX4EUy94lz2lMGGqeeFj7Nepwt4enra/Dfbu4TAX0+m3LRLJMzdfGs1oD3R/2LZBziEL8h/pX4t0ZAHTrojUMbUGfcSjxbAvM+CNuPk/ORoS3g/+3mPhHw59PJRbNM8NUx91sp9dT/o+ELhf8j4snHG34rUIfO8gUyx4lz2rMlMO+LsPU4OQ8V2gL+326OEwF/PnUXzTLxfp/zzF48qzVQ/4/6F0l+sXQ06JGNW5NnS6DeJ8E9rjo4DxXaHHn6aNBzJjxV1ItmIZBn++JZrQH/AeWJt4PqoaLq7cD5" & _
-                                                "yKh6O3A+LY36GKzgeq1Qe+3A+cioejtwPi6Bgx00sfti2NGYyFoVTm8H1UeG058t1Mcmw+ntoPrIcHo7qD4ynN6lZWAHOWijG77WVFxPvtZU2rLnLw9x3v8HFzOfyZOzXlwAAAAASUVORK5CYII="
+Private Const STR_RES_PNG1          As String = "iVBORw0KGgoAAAANSUhEUgAAAOcAAACfCAYAAAAChc6MAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAA3S0lEQVR4Xu2dCXwUVbr2vYx8cxf93fEOKkoWliRAAggkgWyQgCDigsjijsvoeBUUt1mU63cNGFlUYARDQEEUgglLQHABdCSQIAgJRBwhCZpOoqDIruNEEubjfO9T3ZWcnH4rpyrpADFVv98/TZ33eZ9uu/N4qrtOVy4QQtiCNrrha43F9eRrjcX15GuN5Vx7en8EcFPvwEVc8OCCwrZ3pO0OHTtld/yY5wtSVDCOOnRcv0vLZMGCBW1ffnVh6Euz58dPm52RooJx1KHj+r0/Aripd9CaSRWizS1TihJvmbJr0pjJBak6oLstrSgBfZyfS4uhzYuzMxKnz5o3" & _
+                                                "adrM9FQd0E1/JT0BfbKP90cAN9m8NTMudc9lo58vmMCFUAf6bkv7WzDn63J+MzM9PXj67HkTuBDqQB/6TS/vD2W7KXV35KgphemjJxcWjZ5SKPygcdRvTi3o4Wup3UxjldFTPovy9hTmj5pcIFTIK9/05Po5En+/KirpoXfSB45fWzTg4XeEStLD7xShnvDQatue/e/LjIy7f9m8+PvfLiIEQxHqMfcvadDzlud3DzHDdkva7tFj0z7rYHXYinHUxz5fMKa2Z3LhIE4LaPuXim8O3VHxzZGCygNHqioPHhV+0Djq5V8fuR16zkdl6svzI6fOfHXeCzPT8+hW+PHyq/l0O++Fl16x9Xzifr8oLrujpNSzs2S/p4oQDFWoFxeXOX6cU2elF02blS5UMO70cW7fvvPOHTsKCnbsKKzauXOXUME46tu27bijocf50qx5Q8ywvfiXjNGzZmV0sDpsxTjqM2anjzF70G/WvT+kzQjm5MLy0VMK" & _
+                                                "athg1lJQM2pKgUcNqGksA8/RqTvzb55c8MioqQXthqd+2lYF46gjpHYCmjhhXdSA8Ws9Ax/5oCZ54oci5bGP/MA46gPGv+OxE9DY378dFfe7rPLEB1fWJD20xi/sRuBpHPW4+7M8Cfdns56pueLCMVMKnzWC9vyuGziNFdCjb+zzu/6H9tlfgvKvv3/4wKHjournanHmzBka8t8wjjp00NOQn48MfuFfeHnuVmLCn6dPb0e0ZWiH+tSX5+bb+cX/Yt+X478qqxTHjh0X//jHP0RVVZUfGEcdOug5HxkjmLPSyyl8p7lgmqBOeOw8zu3bCx/evesz4SnziIMHDohvDx70A+OoQwc950P8Cx2iPmsEc2aGo9cdevTNmJ1R+7obBXkbPWXX0tHP7zrDB1LB0O1a6ms1NvPOZDAjjkotmMCFUgU66DkfmQEPrc1MfmQ9G0oV6KDnfGTiHng7M/G/V7GhVIEOes7nzhl7gsb4ZsCxqTvbcxor" & _
+                                                "oK/tffELtrf8m8N7TlXX0D/1G3TQ0z/9fGSMmcYbTC6U9TACSnrOR6a4pGzPiRMn2VCqQAc95yND95vJhdEK6DkfmU8/LdxTUV7OhlIFOug5nxfTF7c3Z8AX09Mdve7Q1/UuNnqNgrzRrFnMBtGKybv2+lqNTb5DE8yGFLzfqkG04LcjSc/5yCQ9vLYkeSIfRhXoSL+X85GhQ9YSOhRmw6gCXdzv3mY9b03bFTfGF7B7U3P/ldNYAb3ZCx9OU3Hg6EmrGVPdoIOe/unnI4NDVgqe1Yyp0u6Fma/mcT4yJfvLTlrNmCrQQc/5yFDYirkQWjF15jzt675zZ+FJqxlTBTroOZ8Zc+bFmQFLXbzY0esOvdkLH4wZBXljA6jB12ps8h2a4D0lE0JLoFc9VBAQLohWQK96qOA9pRxAHdCrHsA4ReILGFfXYfbCh6vjPaWTzaf385GhX3pBoeOCyAK96qGC95RcEK2AXvVQ4QKoQ/VQwXtKLohW" & _
+                                                "QK96AOMUiS9gXF2H2Qsf7BuD8saFT4ev1djkOzNxw+kMs9cNpz9c+HSoHirnbTiRJ+Onb+PCp8PXam7YJ++6O21qODlPhIMLoRXQy/2cZ1PDaXoGMpzc42xqODnPpoaT82xqODlPLnw65H7Os6nhND0DGU7DE4PyxoVPh6/V2NQ7BO7M6Qyz1505/eHCp0P1UDlvZ07jh7Rx4dPhazU2+c5M3HA6w+x1w+kPFz4dqodKiwnnqMmFpVwArYDe12ps8p2ZOP20FnrORyZp/NpSR5/Wkp7zkUl4IKvUyae10HM+ZyOcTj6ttRVOh5/WQs/5yCBszj6ttRHOmemlXAAtIT3nI4OwOfu09tyFM5MLoRXQ+1qNTb4zk9Z2nnPstF1hY3wBa9J5TvLhNJ6vv//cyXlO6Omffj4yNBMG/DznvuKvPndynhN6zkeG7jfg5zm3by/43Ml5Tug5n1mzFoaZAWvKeU74YMwoyBtW51A4Krgg+jG5sBJ6" & _
+                                                "X6uxyXdoAg1mQzsrhEZOLsyDnvORwYofmr0qBz7ygbESiA2ld4UQhWltpZ0VQljxE/9AVmXigyuNlUBcKH0rhAR0ViuExqZ/cdEYX8Aau0IIjJ217d84TfH+ykedrBCCnob8fGSwksZY+eMNaEBWCBXu/ttEJyuEoOd8ZIzHOSu9gguiP69W2nmcmzblT3SyQgh6zic9fcVFteFs/Aqh515asuQ/MGYU1A3hGD2lIIdmxXIulBReD+pqMLHJdygDLWZEhBTvKVWMNbfeuvbJNPEGdG3OgPHrPFyQMI66k7W1WDMbd39WTvz92R68p/Tjgewy1PVrawtHjjFD9nzBGDtra7EG1+xBP6cFtP266PP995ZVfr+robW1qH/+xf57oed8VIxffJoRfWtovetpJXxrbp2sWf319u277t2778tdxaVlP+OwVQXjqG/fWeTscc6am0OPxcOFcurMdA/qTh7nhx9+fO/27Tt3NbS2FvWPPvr4voYe" & _
+                                                "54zZ80aaAcWaWTtra7EGt65nXu3r7v0RwM00bu0gcLc8v6vR30qxCrLL+Q0CN2PW/PFm2JyAb6XIQfb+COBmGrt4v885dsru5NpF8BrwfU58/xN9nJ9Li6HNi7PmJZuL4HXg+5z4/if6ZB/vjwBusrmLF8yC7pUQWh+YBZt8JQQ7eHPH1xqL68nXGovrydcay7n2ZAc5zvUDtYvrydcai+vJ1xqLE0920CWwPFgY3fapj7uHPr6+WzyRwhCPOnRcv0vzUxgd3faTTt1DN4d2i8/t2C1FBeOoQ8f1NwfsoEtgSBWpbR7/sGviExu6TXp8fUSqDuie3NgtAX2cn0szkJraJi+kayKFb1JuSESqDui2hHZLQB/rF0DYQZem8+TGHsGPb4iYwIVQC/Whn/N1CRxbuvQIzg2NmMCFUAv1oZ/zDRTs4KMfhEU+tj4i/bGN4UWPbYgQ/tA41Se+18X2yX3T89EN4XkT14cLFarnO/W8cUr7qJvS" & _
+                                                "2qePfOGKopEvtBf+XF6EOnRcP8ewP/9X1LVPX5o+fNKlRcOfvlT48cylRahf84dLGnycj2/oPsQM25Mbuo1+4uOIDlaHrRhH/fGNXcfUBbR77YWeODaFhEVtDo5I3xISXrQ5JEL4Q+NUzw22/3zWegaF5+cGhws/gsLynXrO/6/2kemXdUifd1lQ0bzLg4UfNI76q/9l/zWaTtqX2nWY93K7oKKXLw0SftA46i9dcnmDjzM3pPsQM2x5od1GfxwR0cHqsBXjqOeGdB1TF9KGX6PvNl0VdXhL3/QjW6KLCKFyeHPfz1A/lNuLfZx+A94QhZdP3BBewwfTC+qEx06Y4Dnxgy5bH9nQZcKDKzq3I9oytEMdIbXjicCNnNq+fMzLV9bc+koHcducID8wjjp0dgKKYFL4ym/438tqbkq7nAl7e4Fx1K975lKPVUBTc1MufGJ912eNYG7s5mgZF/RGODd2tbzAF0JEYSmnANb4h1KG6sHhHjth" & _
+                                                "guemoC5bc4O6TPjoks7tiLYM7VDfRCG144lgZlweXP765aE1b7YPFW9d0dEPjKNOQfXYCSiCOfPSDuWvXBpck35ZkH/YCYyjPvPSII9VQHNTUi7MDe36rDdkzl4j6NG3JdT6NTKCublv+ZHNfWu4YNZC9cNboj1cQOvtAJrFMrkwWgG96qGCGdEXTC6U9YAOes5H5qapl2dS8NhQqkAHPecjM/zpdpk3PncZG0oV6KDnfP6U2yvInAH/+H6kowXQ0Nf25vK9uSHhmXwYeaDnfGSMGdEbTC6U9YAOes5HJuOyoMyF7UPYUKpABz3nI0OzYuYrFqFUgQ56zic3rFdQ7QzY0dlrBL2u98iWvplsGC3p6/c46+0Amg2LuRBaMXFDmPYCSpgNKXhWM6ZKu0fXh2kvHkUBKbGaMVWgI/0+zkeGwlZiNWOqQDf8mXbsf/uTH3WPMwNGs6izCz2R3uyFD6ehGbGYC6EVW4L1rxEOWSl4VjOmCs2g" & _
+                                                "YdqvjGVcHlRsNWOqQDfvsmDt45zZrkOx1YypAh2Fk/XM7dg9ri5gzl4j6Ot6+deIZs0SPoRW9PV7nPV2ABdAHaqHCt5TMiG0BHrVQwUB4YJoBfSqhwreU8oB1AG96gG8p0e8AePqOsxe+HB1LoA6VA8VvKdkQmgJ9KqHCgLCBdEK6FUPFbynlAOoA3rVAxinSHwB4+o66sLJv0Z8ABtG9ai3A7jw6VA9VNxwOsMNpzWtKpzqigUufDrkfvipnk0NJ+eJcHAhtAJ6uZ/zbGo4Tc9AhpN7nFz4dMj9nGdTw8l5IhxcCK2AXu7nPJsaTtMzkOHkHicXPh1yv+EpDwAufDpUDxV35nSGHE6uzoVPh+qh4s6czpDDydW58OlQPertAC58OlQPFTecznDDaU2rDufEDeH7uQBaAb3qoeL401rScz4yI6e2L3X0aS3pOR+Z4c+0K3X4aS3r2ezhDI4o5QJoCek5H5nm+LR23mVBpc4+rQ3SPs6Z" & _
+                                                "7TqUOvm0FnrO5yyEs1QNnwa/x1lvB9Cs5Z7nZMKo0tB5zic2RIaZAWvKeU74cBr3PKe9cDZ4nrNLZFhdwJpwnpN8OE3znOd8r0uPiesjKrggqtCsWWlnNQ80mA19AQ3kCqFKBM9qBsU46tDZWSGEFT80G1YgeFYzKMZRv+6ZdpXWK4QiLzID1ugVQusjnvvDxl7GhZ5UsDpnc3B4JRdEP0hnZzUPNMbKH29AA7JCCCt+Mi4PqkTwrGZQjBvBJJ2dFUJY8UOzYSWCZzWDYhx16CxXCEVGXlQbsEauECKe29OLf42w4ufI5r4VfBBV+lbaWiEEEI7H1ofnTNwQ4VEDCSZuDPcYdRshMvF6RqQb4aP3lCpYc4u6E09fQHMIDxekURinup1gmiBw1z1zac51ky714D2lCsZR166t3Rgx0gwo1szaWVuLNbh1PRGWF/gCvoDm0Azm4UK5JTjcg7qdEJl4PTGDInz+a2ux5taoO/BE4OhwNWf+" & _
+                                                "ZcEeLkjGONWdrK1F4F6+tEMOlufhPaWKd7xDjnZtbceIkXUB7TrGztparMGt7aF+TmuCwB3e3DfHWMbHhPLwlr7lqNteW+sSGBYgcBsjxteGzQkbIiagn/N1CRwI3ObQiPF1AXVAaMQEqyAHCnbQJTDge5lPfNgt+YmN3kXwOozvfX7YNdH9PudZBN/n7NgtuW4RfMPg+5z4/qf7fc5fCDhsda+EcH6DWbDFXglBXQERCFxPvtZYXE++1ljOtSc7yHGuH6hdXE++1lhcT77WWJx4soOtGjq0PPFJQuixT/rFH8mPSVE5trlfPOrQsf0uzc6DhaLt/e//HHr36h/j711zIkXl7tXH4lGHjutvKbCDrZPUNsfzYhKP5sVMOrIlJlUHdMe2xCagj/dzCTSpQrS5Z+2PiXfnnJx0d86JVD0nJ933zo8J6OP8znfYwdYGhSz46JaYCVwIdaAP/ZyvS+C4752q4HtWH5/Ah7Bh0Id+zvd8hh2s" & _
+                                                "vTBRfp+8I1v6YgVDPQ5v7pPf0IWJODa8Fhb119ci0nNfjyj6+PWuQmUTjaO+McP+Ce5Vs8Ki3nklLH3d3LDda+eECz/mhhehvvqVhj2P5scMMcN2LC9m9NFt8R0sD1tpHPXDeTFjagNK/azWx+2rjkXdver4vLtXnyiiXxbhxyoap/q47OO2/9tNz7tyTuaNW3VcqNy16ni+U89Br34XNWj+0fSrFxwrGjz/qFAZROOop2Qcsu2ZOKsyauArB9IHzDn42cA5B4TKgDkHPkM94ZWvG/S8+52TQ+i58oZtzcnRd797tIPVYSvGUaeZc4zZg35Oa1JdXR156lRNenXN6SL8TVOV6uqaIqNeXW17sYTp+XN1df7Pp6qFStXP1fkNefoNIJhH8vrkH93cd8KxT8N+S7Rl+C3qCKmdgCKYmxZ2Lc9/s1vNp5ndxY5lkX5gHHXSeewEFMFcNzfcsyEjooZC7Rd2gHHUobMOaMqFh7fEPmsELb+f" & _
+                                                "o2Vc0PvCaXmhJ4Ro3KqTHgpgjRFEK6g+btUJj50wwfPOlce3EhPGrjjejmjL0A51hNSOJ4JJASwf8vrRmmGLjopr3zjmB8ZRH7TgiMdOQI1gzjlYnpz+fc2gjCN+YQcYR510HquApuaKC+/JOfEsPU+pd68+7ug1gh5996w+afkaIUQUlnIKYY0aSoUa6OwEFJ5VP/+8lYI58fjx40HEfzIEoU66fM6z3g7AjOgLJhfKehgBJb3qoZK7MGLp1je7saFUgQ56zkdm7ZywTAoeG0oV6KDnfI592j/InAEP58Y6WgANvdn7006+d1zO8cx6IdQAPecjgxnRF0wulPWADnrOR2bwgqNLh77Oh1IFOug5HxkKXGZK+iE2lCrQQc/5PPBBVRA9N8YMeO+Knxy9RtDX9r7P91LmljJBtAR6zkfGN2MimFwo6wEd9KpHvR2A2ZCCZzVjqvwWetVDhQ5Zi61mTBXoNr0Wrr3Q07o54cVWM6YKdOvm" & _
+                                                "8Be5Ora1f5wZsHKHF+OC3uyFD6ehQ8wShM4upNf+t2M2pOBZzZgq7e5aeVx7wTQKSLHVjKkC3eD5x7SPk8JWbDVjqkBHh76s573rfoij58YbsFzh6DWCvraXfDgNBa5YDWBDUDi1/+04ZKXgWc2YKkE0c/q9RvV2AN5TMiG0BHrVQwUB4YJoBfSqhwreU8oB1AG96gGMUyS+gHF1HWYvfLg6AucU1UMF7ymZEFoCveqhgoBwQbQCetVDBe8p5QDqgF71AMbpEV/AuLoOsxc+XJ0LoA7VQwXvKZkQWgK96lFvB7jhdIYbTmvccPJB5GDDqa5YaGo44ad6IhxcCK2AXu7nPJsaTtMzkOHkHifC5hS5n/Nsajg5T4SDC6EV0Mv9nGdTw2l6BjKc3OPkwqdD7uc8mxpOw1MeAO7M6Qw5nFwdYXOK6qHizpzOMHtb3MypDrjhdIYbTmvccPJB5LAVzub5tLZrqaNPa0nP+cismxO23+GnteyF" & _
+                                                "yJo7nONyTpQicHaBnvORcfxpLek5H5nBC46WOvq0lvScj8yAOQdLHX5ay3o2dzgpGPu5AFoBPecj4/TTWuhVj3o7oLWd5/xhW3yYGbCmnOeED6dxz3M2/Tzn/Wt/CKPnxhuwJpznhA+naTHnOb3XPQnsCiGs+KGQVCJ4VjMoxlHftLBrpZ0VQljxQ7NhJYJnNYNiHPV1c8MqLVcIfZFykRmwxq4QIp4Te65hL/SE1Tl0WFmJ4OmAzs5qHmgwG/oCGpAVQljxM3j+kUoEz2oGxbgvmJV2Vghhxc+AOQcqETyrGRTjqNOsWWm1Qmh8rriInh8jYI1dIUQ894eNgn2NsDrn1KnqCi6IKjRrVtpcIRSFlT++gAZmhRAwAkozIsKH95R+5PfJQ93J2loEbtPCiBws4+OCRLOlB3Una2uNgM7tkvPu3HAP3lOqYBx17dravH4jzYBizaydtbVYg2v2oJ/V+vAG9EQOHbJ6EEIGj1G3ESITaDEj" & _
+                                                "GuGj95QqWHOLuhNPb0CP5hDlcoBMBr123EO3OU7W1iJw9F4yZ+Dcgx68p/Rj7rcYz9GtraVD0pH0PHkDijWzNtbWGmtwfT3o57QmRkCrq3MogB41kKDaGK/OsRNME8OTZkQcsuI9pR/VDtfWtkoKH2x7ND92vBk2J+BbKehnfV0ChhG4d34YXxdQ++BbKVZBPp9hB1snqW1O5MUmHzUXwWvA9znx/U/3+5xnj1Qh2ty3+u/J96z5wbsIXsvJSfj+J/o4v/MddrBVQ4etxpUQNltcCeET90oI5xrMgt4rIRyzuBLCj63rSgjqCohA4HrytcbievK1xnKuPdlBjnP9QO3ievK1xtJSPH+JsIMtCBy2hJ4+fTr+59OnU1SqaBx1n47rd2lmoh98sG3C4MGhCQlXx8clpaSo9KNx1KHj+lsz7GALoA0FMrH69OlJP1dXp+qAjvQJ6FN8XJqJ1NTUNnEDBiX2Sxw0qV9CSqoW0sUPHJyAPs6v" & _
+                                                "NcIOnucEn6qpmcCFUAf60K/4uQSYgQOvCe6flDKBDaEG9KGf821tsIN7v6yM2l9+YN6Xld8WfVlxUDAUob7vq4ZPHMt8tvfLqC9KPen79lcUfVFaLlT27i+ncU/6nn1fNeh56vTpIWbYqv/5z9FVVVUdaNzqkKgt6lXV1WNqA0r9jK6WPv0HRMbGJafHxKfsjk1IEQyfoR4bO8j2yehaz7jkvJj4ZKESHZ+c79QzJCQsKrhTWHpIp7CikM5hwg8aN+qk4/o52rdvH9n+yg7pV1wZUtT+ymChcvmVQTTeIZ10DXrS4eqQ2rAlDBodP3hwB6vDVoyj3j8hZYzZg35O29rwG0Awv6o4WF7+9aGarw9+L7759rAfGEedQuqxE1AEc29peXlJWWUNhZoLu8A46hRUTwMBvZAC9qwRslOnHC3jgt4I9OnT/0P77IWejBDFJ5dTYGqYUNaCOuGxEyZ4Rsclb42OHzghOjq6HdGWoR3qMXED8+x4" & _
+                                                "InAhnbuUdwrvWtOla6QI6xblB8ZRp6B67ATUG8zg8g4hHWuCO3XxDzuBcdRJ57EKaEpKyoVxCSnPGkFLSnH0GkHvC6jla9Sa8BugoGSWf/MdG0oV6KBXPVT2llYsLSn72i+QHNBBz/kQWItozIA//eRsATT0Zi/ts70xCSlLuTBaAT3nI4MZ0RdMLpT1IR30nI8MzYpLO4V3Y0OpAh30nI/M5VeEZHYI6cSGUgU66Dmf/ikpQeYMGJuS4ug1gt7spZA76v0l4jfwZcW3xVYzpgp0dOirvdgRHbIWW82YKtCRnvWsqamJkwLm6EJPxL+avfBh6hfQoWwxF0IraEbU/rfjkJWCZzVjqrSL7p+s/XoXha3YasZUgY70+zgfmfZXBhVbzZgq0LW/Ipj17J+YEicFzNFrBL3ZCx9O05rwG0BAuCBaAb3qoYL3lHIAdUCvegDjFEldOP3qOsxe+HB1LoA6VA8V4z0lH0QW6FUPFQSEC6IV0Kse"
+Private Const STR_RES_PNG2           As String = "KnhPKQdQB/SqB/CeHvEGjKvrMHvhw9VbE34DCAcXQiugVz1U3HDyQeRww+mG08RvtQbCwYXQCujlfvipnk0Np+kZyHByj5MLnw65n/Nsajg5T4SDC6EV0Mv9nGdTw2l6BjKc6mNsbfgNIBxcCK2AXvVQcWdOPogc7szpzpwmfgMIBxdCK6BXPVTccPJB5HDD6YbTxG/gq4qDpU4+rYVe9VDZW1pe6ujTWtJzPs0ezrjkUi6AlpCe85Fx/Gkt6TkfmeDOYaVOPq2FnvORaX9lUKmjT2tJz/m44QwcfgMUkPP2POcpIcLMgDXlPCd8OI17nrPp5znjU1LCzIA15TwnfDhNa8JvACt+vqr4tgLBs5pBMY46zZqVdlYIYcUPzYYVCJ7VDIpxI5j7yysbWCF0UW3AGrlCiHiO9tkLPWF1Dh1WVnJBVDF0NlbzGJ5xA/N8AbWaQRuxQiisAsGzmkExjnpo57BKmyuEouhQtRLBs5pBMY46dA2s" & _
+                                                "ELrIDFgTVgg9d801/AXTWhPsoC+gOV9WfuvhglT29bce1J2srUXg6L1kzhf7Kzx4T6myzzueo1tbW/3Pf440A4o1s3bW1mINrtmDfkZXC8IRG5+cQ3jYUCYMKjPqNkJkYngaM2hyPt5T+hGXnIe6E08ELrhzlxwKjUcNkZfwcqNuI5gmRkA7BOdQ+Dx4T8ngMeqatbX9BqSMNAOKNbP21tYOGm32oJ/TtjbYwfOctqdqasabYXOC71sp7vcGm5kHKXD9kwaNrw2bA/CtFPRzvq0NdrAFgO9zJlefPm0sgtfh+z5nIvoUH5dmAt/LjB8wKDkuybcIXkfioEn4/qf7fc462MEWBP4PG4orHhif5CrgCgmo+3Rcv0szg8NWXOkAVzzAJ7AquEKCeyUEHnaQozlWa7iefK2xtGbPXyLsoEogn0zXyxmulzPOV6/GwA66uLRWrnlJ/EfS9KqQxOkiKmGqiMftwDQRjHFO35ywgy4urY1UIdok" & _
+                                                "TROd46eK5LjnT6eoYDxp2qnOqaln70NFdtDFpTWRki4uik8T/bhQqiSm1cQkzhAXcz6Bhh1cs2bNFe+8+8He5TlrTr+9fJUwwT7GUef6OBYtWnTxsuWrMpYtX+mRvbCPcdS5Pg5ol2RmZSzJzPYsWZYtasE+jTvx2rp168VbdxRmbN1R4PlkR6Ewwb4xTnWuj2PEohEXj1h+c8aIFaM8N60YJUywb4xTnevj6Pq7xIvjnxqQEf/UQE/CUwOFCfYxjjrXx9F1RNeL+4yLyeg9LtbT5+5YYWLs0zjqXB/Hn9p1vTi1Q/eM1KDuntSgSFEH7dM46lwfx4Tgrlc83T167x979Dv9x97xohbaxzjqXB/H/Vd2CxvfucfxBzp2P/O70O7CBPsYR53rMxm7QvwqaarozwXRCujPxgzqN7Bhw4f/vXrtezVFn+8TB787LE7++I9asF+0Z69Ytfbdmvc2brxd7VXJylqZsCJnbVlDXtk5a8qWZmfj" & _
+                                                "b9ezHiZvZmYmLstaWfZxbr7YUbBLFH2+txbsf7wpT6D+VlZWH65fJm97QeK2nbvKPJUHxfdHT4qTf6+qBftlFQcE6tsKCrReN2XdlDBy5aiyWz++Xdyx7S4xrvDuWrB/619vF6jfkD1K+98Y9/iAxKSnB5Zd/9aNYvTGMeK2bbfXgv3r3rpBJP55YFn8k/Hax9X7zpjE6Pv6lSVNShYpUweLwbOG1oL9pEkDBeq97orWPq7/e2XXxMlBkWV/CYoSGR16iNeD6sA+xlFPvbK71utPEX0emtQzvmZ53DUib8ANoihlZC1baD8rfqh4pmdczdPhfbS/X4907vHSQx2jzjwf2lO80rGXyOh4VS1/6dhTTOnYQ6A+sXPPSVw/iJ8mwtTwxU8RPSNTxUUXUHBxi31Vg0Ngzi+Q+A2se2/9ll2ffV4vSCqFRXsEdGqvytvZqybb8YKO65eh2XHyR5u2iM/+tk98/kWx+HxvsfjbvhLjFvsY/yh3" & _
+                                                "C2ZRrde2nYWTvyr/ul4oVb70VFJAC7VeN2XfPHnsh7eKuwrGWTJ2460COq5fJv6JxMnD37he3PYJBdKC4YtuENBx/TJXjYuenPD0ACOMVyOUs4m/eG+NfSLhmYECOq5fZnKH7lNmd4gSCymMVszuECmg4/plnu7WN29Z3NUUxpssyYwbIqDj+mVoZqx8LjRKzO90lVhAgVTBeGpoDwEd1z9kuvhPOXCxaWJgdKoI4bR90n4ORV3Wo5/TBgq/ATp0rT5As9oJCo4V33z7vaAZsUrtVclcvrLEjldm9qrPuH4ZCl1Jwa4iI5D7Sr8UJaVfiZL9ZcYt9jG+c9duhFPrRYeuJYeP1Z8xVTCD0uGt1mtE9siS2z+5Q9y1k4Jowe1b7xQjsm/WesU/nlQyasMYcevW2ywZtX60iHsiSevVe1xMSfL0q41AXj3nGjFEAvsYT5k2WPQZF6v1er5D95IFFL5FFEIr5lN4p3SI1Hr9MSq2ekvSdWJ3" & _
+                                                "8ghLNlP9j1Ex2t8vHLr+hWZNBPH1jr3FIro1wT7GUf99p8j/x/UPmCoi5bD1myKu4nQm/V8QvWR9/FTRjdMFCr8BvB888QMFR0PWilVn1F6VZdmrTnG9KsuyV57k+mXeWpZ9am/JfiOM+8sqBGa+MgK32Mc46vQeVOtFoTvFBVKF3oNqvW7MGnnqzh13CR0jsm7WesU/NuDUrXkUQg10+Kv16n13zKmrX/EF8tVhYmh6Hdg3Qkr1PnfHaL3SgiJPvRHUU+ggndbrqZ6xYvfAG7X8oWes9vfrd6HdKITeML5BYXwThF5l3GLfG9KrxP2kU3tBYpqIkcPWc5q4hNOZoC7r414Q2sP4puA3QIFiA6QCndqrEkgvfPCDAOJws7zyG/H1N9+KygPfGbfYxzjq0Km9KvjghwujCnRqr8qIt28Wd35KAdQAndqrQjOnuGXLrVqgU3tV8MGPEUwEct4wcc38a8XQBdd6b2kf46hDp/aqpNF7ysUU" & _
+                                                "Ph3Qqb0qf+jVX+wacKMW6NReFXzwgwAupiAuITKJpb5b7GMcdejUXpCUJpLksEUvaHiZJ+qyHv2cLlD4rYJobKDg05xeCN3+r8qFp+IbI5QH6HD420NHjFvsYxx1NZycV2PDyXnduGykuGP7nVqgk/s4r/jHKJybKYAaoJP7OC+EbihmTAqiEcrXrhXDXh9u3GLfGKe6Gk7OKy2YwhlMAdQAndzHeRnhTLpBixpOzguhQwDfogAilMuILN8t9jGOuhpO00sOGpA1Vqg96mMKJMYDlQcys1eK4z/8pAU6uQ8+zemF0GF2rPzmoBHI774/Kg4dPmbcGgGlcdTPSTi3UQA12AlnHIVubO4tWqCT+zgvY+ak2REzpRnMYQsJX0AxjrqdcL5AoXuTwqcDOrmP83qqVz9RmHS9FujkPs7LDGddMPuIbAK3ZkDdcBLwaU4vhA7vL3EYi9MwCObhoyeMW+xjHPWzHc4bMm8S+EBIB3RyH+cVN5HC" & _
+                                                "uYkCqAE6uY/zMmZOXziHveYN5rWLrvMGlPaNw1ub4ZxKoXuLwqcDOrmP83qqJ4UzkQKoATq5j/NC6PD+EoexbxMI5nJfQLGPcdR/WeE8SaHRYDucTK+K3XCW0aHr13QIi8NZOZzYxzjqZz2cSymcWymAGqCT+zivuImJYszHY7VAJ/dxXkY459EMSYew5qxZG07Mnsah7bW2wjktuIdYEtxLC3RyH+eF0BUkXKfFaThxOCuHE/tuOH3Apzm9zHDi/SXC+P2R40Y4cYt9jJ+LcF6/ZIS4Lf92LdDJfZxX3KMUzr9SADVAJ/dxXmY48f4SYUQwTbDvfd9pL5zTKXRLKXw6oJP7OK+nesSKgvjhWqCT+zgvM5w4fEUYEUwT7GP8FxfOYxQYHXbDyfWqtOhwvkXhzKMAaoBO7uO8jHB+RAHUcNbDGdJDZIb00gKd3Md5GeGMu1aLG07jceK2bsANZx32wnmjuHXLbVqgk/s4r/6PJIrRH47R" & _
+                                                "Ap3cx3kFMpwzKHTLKHw6oJP7OK8nKXQ7KXw6oJP7OC83nBa44fRy/ZsUzs0UQA3QyX2cV/8JFM4NFEAN0Ml9nFcgw/liSE/xdshVWqCT+zivJ6NixM7+w7RAJ/dxXq0vnFkUqBMUGg3QyX3waU6v8zWc171xo7hl061aoJP7OK/+ExKM5Xk6oJP7OK9AhvMlCl0WhU8HdHIf54XQ7eh3jRY3nMbjxG3dwFIKytETf9cCndwHn+b0Om/DuYjC+TEFUAN0ch/n1X88hfMDCqAG6OQ+ziuQ4XyZQpdN4dMBndzHeT0ZGS12xA7VAp3cx3m54bTADacXfEtk7F9v0QKd3Md59aPQ3fz+KC3QyX2cV6DDuZzCp8NOOJ+g0H0aM1QLdHIf5+WG0wI3nF6GL6RwfkQB1ACd3Md59XuYwvkeBVADdHIf5xXQcIZSOEMpgBqgk/s4L284h2hxw2k8TtzWDbjhrMNOOK99/Xox5sOxWqCT+zivfg/H" & _
+                                                "i5Hv3qwFOrmP8wpkOGdS6FaE9tYCndzHeT3Rva/YHn21FujkPs6r1YVzydsrxZHjf9cCndwHn2b1Ol/D+RqFcyMFUAN0ch/n1e+heDFyHQVQA3RyH+cVyHDOotCtpPDpgE7u47yMcPYdrMUNp/E4cVs34IazDjvhHLbgOvZ0hwp0ch/nFUuhu2ntSC3QyX2cVyDDOZtCt4rCpwM6uY/zerxbX7Gtz2At0Ml9nJcbTgvccHoxwrmeAqjBVjj/m8L5DgVQA3RyH+cVyHDiagI5FD4d0Ml9nNfj3fqIbb0HaYFO7uO83HBa4IbTy7D5w9nTHSrQyX2cV+yDcWLE6pu0QCf3cV6BDWcvsTq0jxbo5D7OC6H7pHeKFjecxuPEbd3AkrdXiMPHf9QCndwHn2b1Ol/DmUHhfJ8CqAE6uY/zMsKZQwHUcLbDiSvbraFfeB3QyX2c1+NdKZxXUQA1QCf3cV6tM5zHKDQabIeT6VVpyeG8Zt5w9nSH" & _
+                                                "CnRyH+cV8/s4ceOqEVqgk/s4r0CGcw6F7h36hdcBndzHeT3WtbfY2itZC3RyH+flhtMCN5xerkmncL5LAdQAndzHeRnhXEkB1HC2wzmXQreWfuF1QCf3cV6PRVA4ew7UAp3cx3m54bTADaeXoenXsqc7VKCT+zivmAf6ixtW3KgFOrmP8wpkOF/teJVY17GvFujkPs7rsYirRH6PAVqgk/s4r1YXzrcoKN9TYHRAJ/fBpzm9zttwvkrhXEsB1ACd3Md5GeFcTgHUcC7C+S6FT4etcIZTOKMogBqgk/s4LzecFrjh9DJk7jD2dIcKdHIf5xV9f39xffYNWqCT+zivgIezEwVQg51wTqTQ5UUlaYFO7uO8Wl84l1GgjlJoNEAn98GnOb3O23DOoXCuoQBqgE7u47yMcGZRADWc7XCmU+jeo/DpgE7u47wmhvcSeZGJWqCT+zgvN5wWuOH0gqumc+ciVaCT+ziv6N/1E9e9fb0W6OQ+ziuQ" & _
+                                                "4ZxHoXufwqcDOrmP85oY1kts6Z6gBTq5j/NqdeF8c9lycejoD1qgk/vg05xe53U4mXORKrbCeR+FM5MCqAE6uY/zCmQ4M+gX/INO0Vqgk/s4LyOc3SiAGtxwGo8Tt3UDbjjrsBXOvwxlz0WqQCf3cV59KXTDl16nBTq5j/MKZDjn0y/4egqfDujkPs7r0S49xeau8Vqgk/s4LzecFrjh9HL1bAoncy5SBTq5j/Pqey+FcwkFUAN0ch/nFehwbqDw6bAfzjgtbjiNx4nbuoE3MylQRyg0GqCT++DTnF7nazjxdy65c5Eq0Ml9nFffe2PFtW9RkDRAJ/dxXoEM54JOvcXGztFaoJP7OC+ELjciTosbTuNx4rZuAEH5jgKjw244uV6VFh3OmRRO5lykCnRyH+fV9x4K55sUJA3QyX2cVyDD+VqnPuLDzjFaoJP7OK9HO/cQueH9tUAn93FebjgtcMPpZdDMIey5SBXo5D7OywjnYgqShrMd" & _
+                                                "ztcpdB9R+HRAJ/dxXkY4w/ppccNpPE7c1g244azDVjhfpnAy5yJVoJP7OC8EZdgbFCYNdgIVyHAupND9lcKnAzq5j/N6pFOU2NQlVgt0ch/n9YsPpzrQ2EBxBNLLDKf5h4zUcFr9ISOOxoaTI+Wlq9lzkSrQqb0qRjgXUZg0qIHiMMNp/iEjNZxWf8iIA6H7mMKnQw0nR2PDyWGG0/xDRmo4rf6QkUl8mkiQg+b0j+ein9MFCr+Bpdk51Z5vvmdDZOL5+pCATu1VWZy5vMSOF3Rcv8ySzOySfaVfGSFk/wQgje8r+VJAx/XLbN1RUHLk+A9sIE1Qh47rl0mZMbgEH9Jct4xCaAHq0HH9Mr3HxZQMmTeUDaTJkPShAjquXwaawbOHeMPJ/QlAGh88a4gtr4Ude5ds7NSXDaQJ6tBx/TJPdIysfr9zNBtIk/eoDh3XL/NAaLczC0J7GiG0+hOAqEPH9Q94QfSSw+b0z86jn9MFCr+BFTnr" & _
+                                                "Sgv37GODZFLw2V4Bndqr8ubS7IV2vKDj+mXeysxa9OnOQuPvcJp/PBezpvnHczG+fUeBgI7rl9m6o3BhOem5UJqgDh3XL5My4+qF17w+jA2lCerQcf0yfcbFLEyeOogNpcnAtBQBHdcvA83AKYPq/fHc2lnT98dzB6Ta81rUqc/CtZpAoQ4d1y/zdMeo0sWd+7AeJm9QHTquX+ah0O4nX+zoDaf5x3O9s2YfYx/jM6gOHdefNE10lsPWXxO2flPEVbIe/ZwuUPgNrFz5bqfslWtPf178FRsmjGevWlu9evXqULVXZd68ZZdkZq8ub8grMzunePHixb/h+mUWL17zm2XZq8p37fmb+PrgIWO2RDCNWZP2MU51W175+fmXfLqzqPwA9XLBPPDdEbFt567i3NxcrVfStKRLUl4eXI7gcMEctohmzZcGF6ekpmi9et7R85K+9/UrJ71fKMGgFweL6Ptii3uP7G3LK/q+/uUDpw2mWdI7WyKY" & _
+                                                "3llzuEimcarb8poX0vOSxZ16l1vNeO/TzPlGxz7Fszvqvf43JLzTnztGnn67c1/WK8sIZo/qP3Xsqv39eiKkc++HaFacbQTUO1simN5Zs49xwbGHOkaeefzKcHy65Nd/wwLx7wlpYqAcuOjUqhBOG5f6c0dZFz/1dPINqeLfOW2gYAfXrFlzxfKcdXszs1adxvtBE+xjHHWuj2PRokUXL16aPf/Npcs9shf2MY4618cB7ZLMrAw6dPXgvWUt2KdxJ15bt269mGbGDDp09eC9pQn2jXGqc30ciTMSL6bD1ozkF6/2pLx4tTAx9mkcda6Po+uIrhfTbJbRe1ysB+8HTYx9Gked6+MIpFf6pZEXLezcZ/7CTr09iyhAJtjHOOpcH8cz7bq1f6Zjj7106Hoa7y1NsI9x1Lk+jkfadesyPiTy+P0UUry3NME+xlHn+kzipol6oQOxU2piY1NF+7A54te4xb6qSZou2BAHEnbQxaW1kJoq2sSn" & _
+                                                "iX5q+BoiMa0Gf2XpX1SvQMMOuri0JlJmi99wIeSInyqSE2cI20ccTYEddHFpbWAGTZp2qjPCZxVKfAAEHdffHLCDLi6tlWteEv8xME0EJ04XUQlTRTxuk6ZXhWCc0zcn7KBKIFdBuF7OcL2ccb56NQZ2kKM5HqjrydcaS2v2/CXCDrq4BBIcEuLQ0DxUxHs485ARh5Dn4pCxJcAOurgEglSBD1mE5YcsJt4PW06d1Q9bWgL1dy64IODnblqKZ3PQUv7bm8MzJV1c1Jjzh2frNEVLoO4f9AKZVHxz6I6Kb44UVB44UlV58Kjwg8ZRL6s4dIfcJxurnjOzi+dOmLPnp9teKBSjp/iDcdRnkE7ua8jzjR1Pzn1+07U/PbWxh3hsQ4QfGEf9te1/aNDTBLXj77009/hbD//0w7xR4sdXb/QD46gffvclw5PzAaiZ7H7kybnbkq/9aUtYD7E5JMIPjKNe8EjDj1OuHdr9zNzvt4/+6XBevDiy" & _
+                                                "JdoPjKN+cPf/2Pb8MOO7uSsmfffTWw8fFIt//60fGEd9A+nkPtVz7Arxq6Spoj8XQB3oc2dQL94f0hNdVvHd+AOHjouqn6vFmTNYzO+/YRx16KCX+6ns5zl12b4sLpBWQC/3c54Z2ydmcYG0Anq53/SUOfzO1CwukFZAz/nI97PzwYlZXCCtgF7u5zwP7vpTFhdIK6CX+znPD+Z+l8UF0gro5X7TE8RPE2Fq6OKniJ6RqeKiCyi4xn3TLfYxrmqbe0F5S8H7o+5JblP+zeE9p6praFi/QQc9+kwPGvbzfPiVPVVcCK2AHn2mB+c5OXdoFRdCK6BHn+lhesqcePPBKi6EVkDP+Zj3QbT5JGloFRdCK6BHn+nBeX6/bWQVF0IroEef6cF5Ln/6uyouhFZAjz7Tw/QcMl38pxy02DQxMDq14XWofdJ+DoVO7oMPp21NeH/UvUi/qjhw9KTVjKlu0EGPPtODhv08b5+66wwXQiugR5/pwXk+" & _
+                                                "9WGvM1wIrYAefaaH6Snzw/zRZ7gQWgE952PeB/GrvIheZ7gQWgE9+kwPzvNwXsIZLoRWQI8+04PzXDL+2zNcCK2AHn2mh+k5YKqIlEOGr1mZtYbA17Xkvvipohuna014f3ifYPxf8EK8p3SyQY8+X7/6wp/3njKN8aTNzwf+vvtpdc9nYpqIkUOm+wKzifpF5rgXRF9O15rw/mj6i9TW1x/IF/6seMo0xpM2Px/4++6n1T2fSWkiSQ6Z7tIfJuolQODD6VoT2PDTfJHaNvVFIrDfYjxpq30yGuNJm/xkNtvj9P37vPeUAwZIWvv86FB74adqWhPeHwF8kWioRXnKNMaTNj8f+Pvup9U9n04vmmVyti+e1RLw/mghLzz+7RsLmKdMYzxp8/OBv+9+Wt3z6fSiWSZn++JZLQHvD+VFcvJprd0X/nz1lGmMJ21+PvD33U+rez6dXjTL5GxfPKsl4P1R9yJd2MjznA1+Eng+e8o0xpP+6ecD" & _
+                                                "f9/9tLrn08lFs0zOxcWzWgLeH94XCVxYvL/yUScrhKBHn+lB5RblKdMYTxry8zHvg2iVz6fuolnQnOuLZ7UEvD/qXiScVP4/e7746h7P14cLG1pbi/rnX+y/F3pfX70XydwnzmtPGWicelr4NOlxNoenr6/ef7u5TwT0+WzMRbNMztbFs1oC3h91L5JxiEP8mvg34t8bAHXooDcObUCtcQvxbA7M+yBsP07OR4a2gP+3m/tEwJ9PJxfNMsFXx9xvpdRR94/6LxT+j4gnH2/4rUAdOssXyBwnzmvP5sC8L8LW4+Q8VGgL+H+7OU4E/PnUXTTLxPt9zrN78ayWQN0/6l4k+cXSUa9HNm5Jns2Bep8E97hq4TxUaHPk6aNez9nwVFEvmoVAnuuLZ7UE/AeUJ94OqoeKqrcD5yOj6u3A+TQ36mOwguu1Qu21A+cjo+rtwPm4BA520ER9MWQ4vR1UHxlObwfVR4bTnyvUxybD6e2g+shwejuo" & _
+                                                "PjKc3qV5YAc5aKMbvtZYXE++1lhas+cvD3HB/wepoa0nOlnfLQAAAABJRU5ErkJggg=="
 Private Const LNG_RES_WIDTH         As Long = 231
 Private Const LNG_FLAT_TOP          As Long = 0
 Private Const LNG_FLAT_WIDTH        As Long = 21
@@ -267,11 +328,14 @@ Private Const LNG_CARD_HEIGHT       As Long = 23
 Private m_eStyle                As UcsNineButtonStyleEnum
 Private m_sngOpacity            As Single
 Private m_sngAnimationDuration  As Single
-Private m_uButton(0 To ucsBstLast) As UcsNinePatchType
+Private m_uButton(0 To ucsBstLast) As UcsNineButtonStateType
 Private m_sCaption              As String
 Private WithEvents m_oFont      As StdFont
 Attribute m_oFont.VB_VarHelpID = -1
 Private m_clrFore               As Long
+Private m_bManualFocus          As Boolean
+Private m_oPicture              As StdPicture
+Private m_clrMask               As OLE_COLOR
 '--- run-time
 Private m_eState                As UcsNineButtonStateEnum
 Private m_hPrevBitmap           As Long
@@ -290,11 +354,13 @@ Private m_sngAnimationOpacity1  As Single
 Private m_sngAnimationOpacity2  As Single
 Private m_hFont                 As Long
 Private m_bShown                As Boolean
+Private m_hPictureBitmap        As Long
+Private m_hPictureAttributes    As Long
 #If ImplHasTimers Then
     Private m_uTimer            As FireOnceTimerData
 #End If
 
-Private Type UcsNinePatchType
+Private Type UcsNineButtonStateType
     ImageArray()        As Byte
     ImagePatch          As cNinePatch
     ImageOpacity        As Single
@@ -352,6 +418,7 @@ Private Enum UcsNineButtonResIndex
     ucsIdxFlatDarkHover
     ucsIdxFlatDarkPressed
     ucsIdxFlatDarkFocus
+    
     ucsIdxButtonDefNormal = 0
     ucsIdxButtonDefHover
     ucsIdxButtonDefPressed
@@ -363,6 +430,7 @@ Private Enum UcsNineButtonResIndex
     ucsIdxButtonRedHover
     ucsIdxButtonRedPressed
     ucsIdxButtonFocus
+    
     ucsIdxCardDefault = 0
     ucsIdxCardPrimary
     ucsIdxCardSuccess
@@ -389,6 +457,8 @@ End Function
 ' Properties
 '=========================================================================
 
+'== design-time ==========================================================
+
 Property Get Style() As UcsNineButtonStyleEnum
     Style = m_eStyle
 End Property
@@ -398,8 +468,8 @@ Property Let Style(ByVal eValue As UcsNineButtonStyleEnum)
         m_eStyle = eValue
         pvSetStyle eValue
         Repaint
+        PropertyChanged
     End If
-    PropertyChanged
 End Property
 
 Property Get Enabled() As Boolean
@@ -423,8 +493,8 @@ Property Let Opacity(ByVal sngValue As Single)
     If m_sngOpacity <> sngValue Then
         m_sngOpacity = sngValue
         Repaint
+        PropertyChanged
     End If
-    PropertyChanged
 End Property
 
 Property Get AnimationDuration() As Single
@@ -445,8 +515,8 @@ Property Let Caption(sValue As String)
     If m_sCaption <> sValue Then
         m_sCaption = sValue
         Repaint
+        PropertyChanged
     End If
-    PropertyChanged
 End Property
 
 Property Get Font() As StdFont
@@ -459,8 +529,8 @@ Property Set Font(oValue As StdFont)
         Set m_oFont = oValue
         pvPrepareFont m_oFont, m_hFont
         Repaint
+        PropertyChanged
     End If
-    PropertyChanged
 End Property
 
 Property Get ForeColor() As OLE_COLOR
@@ -472,8 +542,43 @@ Property Let ForeColor(ByVal clrValue As OLE_COLOR)
     If m_clrFore <> clrValue Then
         m_clrFore = clrValue
         Repaint
+        PropertyChanged
     End If
+End Property
+
+Property Get ManualFocus() As Boolean
+    ManualFocus = m_bManualFocus
+End Property
+
+Property Let ManualFocus(ByVal bValue As Boolean)
+    m_bManualFocus = bValue
     PropertyChanged
+End Property
+
+Property Get Picture() As StdPicture
+    Set Picture = m_oPicture
+End Property
+
+Property Set Picture(oValue As StdPicture)
+    If Not m_oPicture Is oValue Then
+        Set m_oPicture = oValue
+        pvPreparePicture m_oPicture, m_clrMask, m_hPictureBitmap, m_hPictureAttributes
+        Repaint
+        PropertyChanged
+    End If
+End Property
+
+Property Get MaskColor() As OLE_COLOR
+    MaskColor = m_clrMask
+End Property
+
+Property Let MaskColor(ByVal clrValue As OLE_COLOR)
+    If m_clrMask <> clrValue Then
+        m_clrMask = clrValue
+        pvPreparePicture m_oPicture, m_clrMask, m_hPictureBitmap, m_hPictureAttributes
+        Repaint
+        PropertyChanged
+    End If
 End Property
 
 Property Get ButtonState() As UcsNineButtonStateEnum
@@ -484,6 +589,20 @@ Property Let ButtonState(ByVal eState As UcsNineButtonStateEnum)
     pvState(m_eState And Not eState) = False
     pvState(eState And Not m_eState) = True
     PropertyChanged
+End Property
+
+'== run-time =============================================================
+
+Property Get Value() As Boolean
+Attribute Value.VB_UserMemId = 0
+Attribute Value.VB_MemberFlags = "400"
+    '--- do nothing
+End Property
+
+Property Let Value(ByVal bValue As Boolean)
+    If bValue Then
+        pvHandleClick
+    End If
 End Property
 
 Property Get ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Byte()
@@ -507,7 +626,6 @@ Property Let ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = 
         Set m_uButton(eState).ImagePatch = Nothing
     End If
     Repaint
-    PropertyChanged
 End Property
 
 Property Get ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -525,7 +643,6 @@ Property Let ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum 
         m_uButton(eState).ImageOpacity = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextFont(Optional ByVal eState As UcsNineButtonStateEnum = -1) As StdFont
@@ -543,7 +660,6 @@ Property Set ButtonTextFont(Optional ByVal eState As UcsNineButtonStateEnum = -1
         Set m_uButton(eState).TextFont = oValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextFlags(Optional ByVal eState As UcsNineButtonStateEnum = -1) As UcsNineButtonTextFlagsEnum
@@ -561,7 +677,6 @@ Property Let ButtonTextFlags(Optional ByVal eState As UcsNineButtonStateEnum = -
         m_uButton(eState).TextFlags = eValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextColor(Optional ByVal eState As UcsNineButtonStateEnum = -1) As OLE_COLOR
@@ -579,7 +694,6 @@ Property Let ButtonTextColor(Optional ByVal eState As UcsNineButtonStateEnum = -
         m_uButton(eState).TextColor = clrValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -597,7 +711,6 @@ Property Let ButtonTextOpacity(Optional ByVal eState As UcsNineButtonStateEnum =
         m_uButton(eState).TextOpacity = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -615,7 +728,6 @@ Property Let ButtonTextOffsetX(Optional ByVal eState As UcsNineButtonStateEnum =
         m_uButton(eState).TextOffsetX = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonTextOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -633,7 +745,6 @@ Property Let ButtonTextOffsetY(Optional ByVal eState As UcsNineButtonStateEnum =
         m_uButton(eState).TextOffsetY = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonShadowColor(Optional ByVal eState As UcsNineButtonStateEnum = -1) As OLE_COLOR
@@ -651,7 +762,6 @@ Property Let ButtonShadowColor(Optional ByVal eState As UcsNineButtonStateEnum =
         m_uButton(eState).ShadowColor = clrValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonShadowOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -669,7 +779,6 @@ Property Let ButtonShadowOpacity(Optional ByVal eState As UcsNineButtonStateEnum
         m_uButton(eState).ShadowOpacity = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonShadowOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -687,7 +796,6 @@ Property Let ButtonShadowOffsetX(Optional ByVal eState As UcsNineButtonStateEnum
         m_uButton(eState).ShadowOffsetX = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
 
 Property Get ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -705,8 +813,9 @@ Property Let ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum
         m_uButton(eState).ShadowOffsetY = sngValue
         Repaint
     End If
-    PropertyChanged
 End Property
+
+'== private ==============================================================
 
 Private Property Get pvState(ByVal eState As UcsNineButtonStateEnum) As Boolean
     pvState = (m_eState And eState) <> 0
@@ -744,6 +853,7 @@ Public Sub Repaint()
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
         Refresh
+        pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
     End If
     Exit Sub
 EH:
@@ -758,6 +868,8 @@ End Sub
 Friend Sub frTimer()
     pvAnimateState DateTimer - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
 End Sub
+
+'== private ==============================================================
 
 Private Function pvGetEffectiveState(ByVal eState As UcsNineButtonStateEnum) As UcsNineButtonStateEnum
     If (eState And ucsBstDisabled) <> 0 Then
@@ -779,10 +891,7 @@ Private Function pvGetEffectiveState(ByVal eState As UcsNineButtonStateEnum) As 
     pvGetEffectiveState = eState
 End Function
 
-Private Function pvPrepareBitmap( _
-            ByVal eState As UcsNineButtonStateEnum, _
-            hFocusBitmap As Long, _
-            hBitmap As Long) As Boolean
+Private Function pvPrepareBitmap(ByVal eState As UcsNineButtonStateEnum, hFocusBitmap As Long, hBitmap As Long) As Boolean
     Const FUNC_NAME     As String = "pvPrepareBitmap"
     Dim hGraphics       As Long
     Dim hNewFocusBitmap As Long
@@ -797,13 +906,16 @@ Private Function pvPrepareBitmap( _
     Dim uRect           As RECTF
     Dim hStringFormat   As Long
     Dim hFont           As Long
+    Dim sngPicWidth     As Single
+    Dim sngPicHeight    As Single
+    Dim sCaption        As String
     
     On Error GoTo EH
     If (eState And ucsBstFocused) <> 0 And (eState And ucsBstHoverPressed) <> ucsBstHoverPressed Then
         If hFocusBitmap = 0 Then
             With m_uButton(ucsBstFocused)
                 If Not .ImagePatch Is Nothing Then
-                    If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, ByVal 0, hNewFocusBitmap) <> 0 Then
+                    If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, 0, hNewFocusBitmap) <> 0 Then
                         GoTo QH
                     End If
                     If GdipGetImageGraphicsContext(hNewFocusBitmap, hGraphics) <> 0 Then
@@ -828,7 +940,7 @@ Private Function pvPrepareBitmap( _
         Else
             hFont = m_hFont
         End If
-        If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, ByVal 0, hNewBitmap) <> 0 Then
+        If GdipCreateBitmapFromScan0(ScaleWidth, ScaleHeight, ScaleWidth * 4, PixelFormat32bppARGB, 0, hNewBitmap) <> 0 Then
             GoTo QH
         End If
         If GdipGetImageGraphicsContext(hNewBitmap, hGraphics) <> 0 Then
@@ -846,46 +958,47 @@ Private Function pvPrepareBitmap( _
             lWidth = ScaleWidth
             lHeight = ScaleHeight
         End If
-        RaiseEvent OwnerDraw(hGraphics, hFont, eState, lLeft, lTop, lWidth, lHeight)
-        If hFont <> 0 Then
-            If GdipCreateSolidFill(pvTranslateColor(IIf(.TextColor = DEF_TEXTCOLOR, m_clrFore, .TextColor), .TextOpacity), hBrush) <> 0 Then
-                GoTo QH
-            End If
-            If GdipCreateStringFormat(0, 0, hStringFormat) <> 0 Then
-                GoTo QH
-            End If
-            If GdipSetStringFormatAlign(hStringFormat, .TextFlags And 3) <> 0 Then
-                GoTo QH
-            End If
-            If GdipSetStringFormatLineAlign(hStringFormat, (.TextFlags \ 4) And 3) <> 0 Then
-                GoTo QH
-            End If
-            If GdipSetStringFormatFlags(hStringFormat, .TextFlags \ 16) <> 0 Then
-                GoTo QH
-            End If
-            lOffset = .TextOffsetX * -((eState And ucsBstHoverPressed) = ucsBstHoverPressed)
-            uRect.Left = lLeft + lOffset
-            lOffset = .TextOffsetY * -((eState And ucsBstHoverPressed) = ucsBstHoverPressed)
-            uRect.Top = lTop + lOffset
-            uRect.Right = lWidth
-            uRect.Bottom = lHeight
-            If .ShadowOffsetX <> 0 Or .ShadowOffsetY <> 0 Or .ImagePatch Is Nothing Then
-                If GdipCreateSolidFill(pvTranslateColor(.ShadowColor, .ShadowOpacity), hShadowBrush) <> 0 Then
+        sCaption = m_sCaption
+        RaiseEvent OwnerDraw(hGraphics, hFont, eState, lLeft, lTop, lWidth, lHeight, sCaption, m_hPictureBitmap)
+        If lWidth > 0 And lHeight > 0 Then
+            If m_hPictureBitmap <> 0 Then
+                If GdipGetImageDimension(m_hPictureBitmap, sngPicWidth, sngPicHeight) <> 0 Then
                     GoTo QH
                 End If
-                If GdipSetTextRenderingHint(hGraphics, TextRenderingHintAntiAlias) <> 0 Then
+                If GdipDrawImageRectRect(hGraphics, m_hPictureBitmap, lLeft + (lWidth - sngPicWidth) / 2, lTop + (lHeight - sngPicHeight) / 2, sngPicWidth, sngPicHeight, 0, 0, sngPicWidth, sngPicHeight, , m_hPictureAttributes) <> 0 Then
                     GoTo QH
                 End If
-                uRect.Left = uRect.Left + .ShadowOffsetX
-                uRect.Top = uRect.Top + .ShadowOffsetY
-                If GdipDrawString(hGraphics, StrPtr(m_sCaption), -1, hFont, uRect, hStringFormat, hShadowBrush) <> 0 Then
+            ElseIf hFont <> 0 And LenB(sCaption) <> 0 Then
+                If GdipCreateSolidFill(pvTranslateColor(IIf(.TextColor = DEF_TEXTCOLOR, m_clrFore, .TextColor), .TextOpacity), hBrush) <> 0 Then
                     GoTo QH
                 End If
-                uRect.Left = uRect.Left - .ShadowOffsetX
-                uRect.Top = uRect.Top - .ShadowOffsetY
-            End If
-            If GdipDrawString(hGraphics, StrPtr(m_sCaption), -1, hFont, uRect, hStringFormat, hBrush) <> 0 Then
-                GoTo QH
+                If Not pvPrepareStringFormat(.TextFlags, hStringFormat) Then
+                    GoTo QH
+                End If
+                lOffset = .TextOffsetX * -((eState And ucsBstHoverPressed) = ucsBstHoverPressed)
+                uRect.Left = lLeft + lOffset
+                lOffset = .TextOffsetY * -((eState And ucsBstHoverPressed) = ucsBstHoverPressed)
+                uRect.Top = lTop + lOffset
+                uRect.Right = lWidth
+                uRect.Bottom = lHeight
+                If .ShadowOffsetX <> 0 Or .ShadowOffsetY <> 0 Or .ImagePatch Is Nothing Then
+                    If GdipCreateSolidFill(pvTranslateColor(.ShadowColor, .ShadowOpacity), hShadowBrush) <> 0 Then
+                        GoTo QH
+                    End If
+                    If GdipSetTextRenderingHint(hGraphics, TextRenderingHintAntiAlias) <> 0 Then
+                        GoTo QH
+                    End If
+                    uRect.Left = uRect.Left + .ShadowOffsetX
+                    uRect.Top = uRect.Top + .ShadowOffsetY
+                    If GdipDrawString(hGraphics, StrPtr(sCaption), -1, hFont, uRect, hStringFormat, hShadowBrush) <> 0 Then
+                        GoTo QH
+                    End If
+                    uRect.Left = uRect.Left - .ShadowOffsetX
+                    uRect.Top = uRect.Top - .ShadowOffsetY
+                End If
+                If GdipDrawString(hGraphics, StrPtr(sCaption), -1, hFont, uRect, hStringFormat, hBrush) <> 0 Then
+                    GoTo QH
+                End If
             End If
         End If
     End With
@@ -943,6 +1056,272 @@ EH:
     Resume QH
 End Function
 
+Private Function pvPrepareAttribs(ByVal sngAlpha As Single, hAttributes As Long) As Boolean
+    Const FUNC_NAME     As String = "pvPrepareAttribs"
+    Dim clrMatrix(0 To 4, 0 To 4) As Single
+    Dim hNewAttributes  As Long
+    
+    On Error GoTo EH
+    If GdipCreateImageAttributes(hNewAttributes) <> 0 Then
+        GoTo QH
+    End If
+    clrMatrix(0, 0) = 1
+    clrMatrix(1, 1) = 1
+    clrMatrix(2, 2) = 1
+    clrMatrix(3, 3) = sngAlpha
+    clrMatrix(4, 4) = 1
+    If GdipSetImageAttributesColorMatrix(hNewAttributes, 0, 1, clrMatrix(0, 0), clrMatrix(0, 0), 0) <> 0 Then '
+        GoTo QH
+    End If
+    '--- commit
+    If hAttributes <> 0 Then
+        Call GdipDisposeImageAttributes(hAttributes)
+        hAttributes = 0
+    End If
+    hAttributes = hNewAttributes
+    hNewAttributes = 0
+    '--- success
+    pvPrepareAttribs = True
+QH:
+    If hNewAttributes <> 0 Then
+        Call GdipDisposeImageAttributes(hNewAttributes)
+        hNewAttributes = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
+Private Function pvPrepareFont(oFont As StdFont, hFont As Long) As Boolean
+    Const FUNC_NAME     As String = "pvPrepareFont"
+    Dim hFamily         As Long
+    Dim hNewFont        As Long
+    Dim eStyle          As FontStyle
+
+    On Error GoTo EH
+    If oFont Is Nothing Then
+        GoTo QH
+    End If
+    If GdipCreateFontFamilyFromName(StrPtr(oFont.Name), 0, hFamily) <> 0 Then
+        If GdipGetGenericFontFamilySansSerif(hFamily) <> 0 Then
+            GoTo QH
+        End If
+    End If
+    eStyle = FontStyleBold * -oFont.Bold _
+        Or FontStyleItalic * -oFont.Italic _
+        Or FontStyleUnderline * -oFont.Underline _
+        Or FontStyleStrikeout * -oFont.Strikethrough
+    If GdipCreateFont(hFamily, oFont.Size, eStyle, UnitPoint, hNewFont) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hFont <> 0 Then
+        Call GdipDeleteFont(hFont)
+    End If
+    hFont = hNewFont
+    hNewFont = 0
+    '--- success
+    pvPrepareFont = True
+QH:
+    If hFamily <> 0 Then
+        Call GdipDeleteFontFamily(hFamily)
+        hFamily = 0
+    End If
+    If hNewFont <> 0 Then
+        Call GdipDeleteFont(hNewFont)
+        hNewFont = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
+Private Function pvPrepareStringFormat(ByVal lFlags As UcsNineButtonTextFlagsEnum, hStringFormat As Long) As Boolean
+    Const FUNC_NAME     As String = "pvPrepareStringFormat"
+    Dim hNewFormat      As Long
+    
+    On Error GoTo EH
+    If GdipCreateStringFormat(0, 0, hNewFormat) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatAlign(hNewFormat, lFlags And 3) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatLineAlign(hNewFormat, (lFlags \ 4) And 3) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatFlags(hNewFormat, lFlags \ 16) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hStringFormat <> 0 Then
+        Call GdipDeleteStringFormat(hStringFormat)
+    End If
+    hStringFormat = hNewFormat
+    hNewFormat = 0
+    '--- success
+    pvPrepareStringFormat = True
+QH:
+    If hNewFormat <> 0 Then
+        Call GdipDeleteStringFormat(hNewFormat)
+        hNewFormat = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Function
+
+Private Function pvPreparePicture(oPicture As StdPicture, ByVal clrMask As OLE_COLOR, hPictureBitmap As Long, hPictureAttributes As Long) As Boolean
+    Const FUNC_NAME     As String = "pvPreparePicture"
+    Dim hTempBitmap     As Long
+    Dim hNewBitmap      As Long
+    Dim hNewAttributes  As Long
+    Dim lWidth          As Long
+    Dim lHeight         As Long
+    Dim uHdr            As BITMAPINFOHEADER
+    Dim hMemDC          As Long
+    Dim uInfo           As ICONINFO
+    Dim baColorBits()   As Byte
+    Dim bHasAlpha       As Boolean
+    Dim hDib            As Long
+    Dim lpBits          As Long
+    Dim hPrevDib        As Long
+    Dim lIdx            As Long
+    
+    On Error GoTo EH
+    If Not oPicture Is Nothing Then
+        If oPicture.Handle <> 0 Then
+            Select Case oPicture.Type
+            Case vbPicTypeBitmap
+                If GdipCreateBitmapFromHBITMAP(oPicture.Handle, 0, hNewBitmap) <> 0 Then
+                    GoTo QH
+                End If
+                If clrMask <> -1 Then
+                    If GdipCreateImageAttributes(hNewAttributes) <> 0 Then
+                        GoTo QH
+                    End If
+                    If GdipSetImageAttributesColorKeys(hNewAttributes, 0, 1, pvTranslateColor(clrMask), pvTranslateColor(clrMask)) <> 0 Then
+                        GoTo QH
+                    End If
+                End If
+            Case Else
+                lWidth = HM2Pix(oPicture.Width)
+                lHeight = HM2Pix(oPicture.Height)
+                hMemDC = CreateCompatibleDC(0)
+                If hMemDC = 0 Then
+                    GoTo QH
+                End If
+                With uHdr
+                    .biSize = Len(uHdr)
+                    .biPlanes = 1
+                    .biBitCount = 32
+                    .biWidth = lWidth
+                    .biHeight = -lHeight
+                    .biSizeImage = (4 * lWidth) * lHeight
+                End With
+                If oPicture.Type = vbPicTypeIcon Then
+                    If GetIconInfo(oPicture.Handle, uInfo) = 0 Then
+                        GoTo QH
+                    End If
+                    ReDim baColorBits(0 To uHdr.biSizeImage - 1) As Byte
+                    If GetDIBits(hMemDC, uInfo.hbmColor, 0, lHeight, baColorBits(0), uHdr, DIB_RGB_COLORS) = 0 Then
+                        GoTo QH
+                    End If
+                    If GdipCreateBitmapFromScan0(lWidth, lHeight, 4 * lWidth, PixelFormat32bppARGB, VarPtr(baColorBits(0)), hTempBitmap) <> 0 Then
+                        GoTo QH
+                    End If
+                    For lIdx = 3 To UBound(baColorBits) Step 4
+                        If baColorBits(lIdx) <> 0 Then
+                            bHasAlpha = True
+                            Exit For
+                        End If
+                    Next
+                    If Not bHasAlpha Then
+                        '--- note: GdipCreateBitmapFromHICON working ok for old-style (single-bit) transparent icons only
+                        If GdipCreateBitmapFromHICON(oPicture.Handle, hNewBitmap) <> 0 Then
+                            GoTo QH
+                        End If
+                    Else
+                        '--- note: pixel format (or size) *must* differ from hTempBitmap's one for actual
+                        '---   memcpy to happen (PixelFormat32bppARGB -> PixelFormat32bppPARGB)
+                        If GdipCloneBitmapAreaI(0, 0, lWidth, lHeight, PixelFormat32bppPARGB, hTempBitmap, hNewBitmap) <> 0 Then
+                            GoTo QH
+                        End If
+                    End If
+                Else
+                    hDib = CreateDIBSection(hMemDC, uHdr, DIB_RGB_COLORS, lpBits, 0, 0)
+                    If hDib = 0 Then
+                        GoTo QH
+                    End If
+                    hPrevDib = SelectObject(hMemDC, hDib)
+                    pvRenderPicture oPicture, hMemDC, 0, 0, lWidth, lHeight, 0, oPicture.Height, oPicture.Width, -oPicture.Height
+                    If GdipCreateBitmapFromScan0(lWidth, lHeight, 4 * lWidth, PixelFormat32bppARGB, lpBits, hTempBitmap) <> 0 Then
+                        GoTo QH
+                    End If
+                    If GdipCloneBitmapAreaI(0, 0, lWidth, lHeight, PixelFormat32bppPARGB, hTempBitmap, hNewBitmap) <> 0 Then
+                        GoTo QH
+                    End If
+                End If
+            End Select
+        End If
+    End If
+    '--- commit
+    If hPictureBitmap <> 0 Then
+        Call GdipDisposeImage(hPictureBitmap)
+        hPictureBitmap = 0
+    End If
+    hPictureBitmap = hNewBitmap
+    hNewBitmap = 0
+    If hPictureAttributes <> 0 Then
+        Call GdipDisposeImageAttributes(hPictureAttributes)
+        hPictureAttributes = 0
+    End If
+    hPictureAttributes = hNewAttributes
+    hNewAttributes = 0
+    '--- success
+    pvPreparePicture = True
+QH:
+    If hNewBitmap <> 0 Then
+        Call GdipDisposeImage(hNewBitmap)
+        hNewBitmap = 0
+    End If
+    If hNewAttributes <> 0 Then
+        Call GdipDisposeImageAttributes(hNewAttributes)
+        hNewAttributes = 0
+    End If
+    If hTempBitmap <> 0 Then
+        Call GdipDisposeImage(hTempBitmap)
+        hTempBitmap = 0
+    End If
+    If hPrevDib <> 0 Then
+        Call SelectObject(hMemDC, hPrevDib)
+        hPrevDib = 0
+    End If
+    If hDib <> 0 Then
+        Call DeleteObject(hDib)
+        hDib = 0
+    End If
+    If uInfo.hbmColor <> 0 Then
+        Call DeleteObject(uInfo.hbmColor)
+        uInfo.hbmColor = 0
+    End If
+    If uInfo.hbmMask <> 0 Then
+        Call DeleteObject(uInfo.hbmMask)
+        uInfo.hbmMask = 0
+    End If
+    If hMemDC <> 0 Then
+        Call DeleteDC(hMemDC)
+        hMemDC = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
 Private Function pvTranslateColor(ByVal clrValue As OLE_COLOR, Optional ByVal Alpha As Single = 1) As Long
     Dim uQuad           As UcsRgbQuad
     Dim lTemp           As Long
@@ -962,81 +1341,15 @@ Private Function pvTranslateColor(ByVal clrValue As OLE_COLOR, Optional ByVal Al
     Call CopyMemory(pvTranslateColor, uQuad, 4)
 End Function
 
-Private Function pvPrepareAttribs(ByVal sngAlpha As Single, hAttributes As Long) As Boolean
-    Const FUNC_NAME     As String = "pvPrepareAttribs"
-    Dim clrMatrix(0 To 4, 0 To 4) As Single
-    Dim hTempAttributes As Long
-    
-    On Error GoTo EH
-    If GdipCreateImageAttributes(hTempAttributes) <> 0 Then
-        GoTo QH
-    End If
-    clrMatrix(0, 0) = 1
-    clrMatrix(1, 1) = 1
-    clrMatrix(2, 2) = 1
-    clrMatrix(3, 3) = sngAlpha
-    clrMatrix(4, 4) = 1
-    If GdipSetImageAttributesColorMatrix(hTempAttributes, 0, 1, clrMatrix(0, 0), clrMatrix(0, 0), 0) <> 0 Then '
-        GoTo QH
-    End If
-    '--- commit
-    If hAttributes <> 0 Then
-        Call GdipDisposeImageAttributes(hAttributes)
-        hAttributes = 0
-    End If
-    hAttributes = hTempAttributes
-    hTempAttributes = 0
-    '--- success
-    pvPrepareAttribs = True
-QH:
-    If hTempAttributes <> 0 Then
-        Call GdipDisposeImageAttributes(hTempAttributes)
-        hTempAttributes = 0
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume QH
-End Function
-
-Private Function pvPrepareFont(oFont As StdFont, hFont As Long) As Boolean
-    Const FUNC_NAME     As String = "pvPrepareFont"
-    Dim hFamily         As Long
-    Dim eStyle          As FontStyle
-    
-    On Error GoTo EH
-    If hFont <> 0 Then
-        Call GdipDeleteFont(hFont)
-        hFont = 0
-    End If
-    If GdipCreateFontFamilyFromName(StrPtr(oFont.Name), 0, hFamily) <> 0 Then
-        If GdipGetGenericFontFamilySansSerif(hFamily) <> 0 Then
-            GoTo QH
-        End If
-    End If
-    eStyle = FontStyleBold * -oFont.Bold _
-        Or FontStyleItalic * -oFont.Italic _
-        Or FontStyleUnderline * -oFont.Underline _
-        Or FontStyleStrikeout * -oFont.Strikethrough
-    If GdipCreateFont(hFamily, oFont.Size, eStyle, UnitPoint, hFont) <> 0 Then
-        GoTo QH
-    End If
-    '--- success
-    pvPrepareFont = True
-QH:
-    If hFamily <> 0 Then
-        Call GdipDeleteFontFamily(hFamily)
-        hFamily = 0
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume QH
-End Function
-
 Private Function pvRegisterCancelMode(oCtl As Object) As Boolean
-    On Error GoTo QH
-    Parent.RegisterCancelMode oCtl
+    Dim bHandled        As Boolean
+    
+    RaiseEvent RegisterCancelMode(oCtl, bHandled)
+    If Not bHandled Then
+        On Error GoTo QH
+        Parent.RegisterCancelMode oCtl
+        On Error GoTo 0
+    End If
     '--- success
     pvRegisterCancelMode = True
 QH:
@@ -1044,17 +1357,15 @@ End Function
 
 Private Function pvHitTest(ByVal X As Single, ByVal Y As Single) As HitResultConstants
     Const FUNC_NAME     As String = "pvHitTest"
-    Dim clrCurrent      As Long
-    Dim lAlpha          As Long
+    Dim uQuad           As UcsRgbQuad
     
     On Error GoTo EH
     pvHitTest = vbHitResultHit
-    If GdipBitmapGetPixel(m_hBitmap, X, Y, clrCurrent) <> 0 Then
+    If GdipBitmapGetPixel(m_hBitmap, X, Y, uQuad) <> 0 Then
         GoTo QH
     End If
-    Call CopyMemory(lAlpha, ByVal UnsignedAdd(VarPtr(clrCurrent), 3), 1)
-    If lAlpha < 255 Then
-        If lAlpha > 0 Then
+    If uQuad.A < 255 Then
+        If uQuad.A > 0 Then
             pvHitTest = vbHitResultTransparent
         Else
             pvHitTest = vbHitResultOutside
@@ -1392,7 +1703,12 @@ Private Sub pvSetCardStyle( _
     End With
 End Sub
 
-Private Function pvResExtract(ByVal hResBitmap As Long, ByVal eIdx As UcsNineButtonResIndex, ByVal lTop As Long, ByVal lWidth As Long, ByVal lHeight As Long) As cNinePatch
+Private Function pvResExtract( _
+            ByVal hResBitmap As Long, _
+            ByVal eIdx As UcsNineButtonResIndex, _
+            ByVal lTop As Long, _
+            ByVal lWidth As Long, _
+            ByVal lHeight As Long) As cNinePatch
     Const FUNC_NAME     As String = "pvResExtract"
     Dim hNewBitmap      As Long
     Dim lLeft           As Long
@@ -1425,7 +1741,7 @@ End Function
 
 Private Sub pvSetEmptyStyle()
     Dim lIdx            As Long
-    Dim uEmpty          As UcsNinePatchType
+    Dim uEmpty          As UcsNineButtonStateType
 
     With uEmpty
         .ImageOpacity = DEF_IMAGEOPACITY
@@ -1440,24 +1756,63 @@ Private Sub pvSetEmptyStyle()
     Next
 End Sub
 
-#If Not ImplUseShared Then
-Private Function UnsignedAdd(ByVal lUnsignedPtr As Long, ByVal lSignedOffset As Long) As Long
-    '--- note: safely add *signed* offset to *unsigned* ptr for *unsigned* retval w/o overflow in LARGEADDRESSAWARE processes
-    UnsignedAdd = ((lUnsignedPtr Xor &H80000000) + lSignedOffset) Xor &H80000000
-End Function
+Private Sub pvHandleMouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    Const FUNC_NAME     As String = "pvHandleMouseDown"
+    
+    On Error GoTo EH
+    m_nDownButton = Button
+    m_nDownShift = Shift
+    m_sngDownX = X
+    m_sngDownY = Y
+    If (Button And vbLeftButton) <> 0 Then
+        If pvHitTest(X, Y) <> vbHitResultOutside Then
+            pvRegisterCancelMode Me
+            pvState(ucsBstPressed Or ucsBstFocused * (1 + m_bManualFocus)) = True
+        End If
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Sub
 
+Private Sub pvHandleClick()
+    Const FUNC_NAME     As String = "pvHandleClick"
+    
+    On Error GoTo EH
+    pvState(ucsBstPressed) = True
+    pvState(ucsBstPressed) = False
+    pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
+    RaiseEvent Click
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Sub
+
+Private Sub pvPumpMessages(ByVal hWnd As Long, ByVal lFromMsg As Long, ByVal lToMsg As Long)
+    Dim uMsg            As APIMSG
+    
+    Do While PeekMessage(uMsg, hWnd, lFromMsg, lToMsg, PM_REMOVE) <> 0
+        Call DispatchMessage(uMsg)
+    Loop
+End Sub
+
+Private Sub pvRenderPicture(pPicture As IPicture, hDC As Long, X As Long, Y As Long, cx As Long, cy As Long, xSrc As OLE_XPOS_HIMETRIC, ySrc As OLE_YPOS_HIMETRIC, cxSrc As OLE_XSIZE_HIMETRIC, cySrc As OLE_YSIZE_HIMETRIC)
+    If Not pPicture Is Nothing Then
+        If pPicture.Handle <> 0 Then
+            pPicture.Render hDC, X, Y, cx, cy, xSrc, ySrc, cxSrc, cySrc, ByVal 0
+        End If
+    End If
+End Sub
+
+#If Not ImplUseShared Then
 Private Property Get DateTimer() As Double
     Dim cDateTime       As Currency
     
     Call GetSystemTimeAsFileTime(cDateTime)
     DateTimer = CDbl(cDateTime - 9435304800000@) / 1000#
 End Property
-
-Private Function RedrawWindow(ByVal hWnd As Long, Optional ByVal UpdateImmediate As Boolean) As Long
-    If hWnd <> 0 Then
-        RedrawWindow = ApiRedrawWindow(hWnd, 0, 0, RDW_INVALIDATE Or RDW_ALLCHILDREN Or (-UpdateImmediate * (RDW_ERASE Or RDW_FRAME Or RDW_UPDATENOW)))
-    End If
-End Function
 
 Private Function FromBase64Array(sText As String) As Byte()
     Dim lSize           As Long
@@ -1474,10 +1829,14 @@ Private Function FromBase64Array(sText As String) As Byte()
         FromBase64Array = vbNullString
     End If
 End Function
+
+Private Function HM2Pix(ByVal Value As Double) As Long
+   HM2Pix = Int(Value * 1440 / 2540 / Screen.TwipsPerPixelX + 0.5)
+End Function
 #End If
 
 '=========================================================================
-' Base class events
+' Event handlers
 '=========================================================================
 
 Private Sub m_oFont_FontChanged(ByVal PropertyName As String)
@@ -1494,30 +1853,40 @@ Private Sub UserControl_HitTest(X As Single, Y As Single, HitResult As Integer)
     End If
 End Sub
 
-Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
-    Const FUNC_NAME     As String = "UserControl_MouseDown"
-    
-    On Error GoTo EH
-    m_nDownButton = Button
-    m_nDownShift = Shift
-    m_sngDownX = X
-    m_sngDownY = Y
-    If (Button And vbLeftButton) <> 0 Then
-        If pvHitTest(X, Y) <> vbHitResultOutside Then
-            pvRegisterCancelMode Me
-            pvState(ucsBstPressed Or ucsBstFocused) = True
-        End If
+Private Sub UserControl_KeyDown(KeyCode As Integer, Shift As Integer)
+    RaiseEvent KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub UserControl_KeyPress(KeyAscii As Integer)
+    RaiseEvent KeyPress(KeyAscii)
+    If KeyAscii = 32 Or KeyAscii = 13 Then
+        pvHandleClick
+        KeyAscii = 0
     End If
-    Exit Sub
-EH:
-    PrintError FUNC_NAME
-    Resume Next
+End Sub
+
+Private Sub UserControl_AccessKeyPress(KeyAscii As Integer)
+    RaiseEvent KeyPress(KeyAscii)
+    If KeyAscii <> 0 Then
+        pvHandleClick
+        KeyAscii = 0
+    End If
+End Sub
+
+Private Sub UserControl_KeyUp(KeyCode As Integer, Shift As Integer)
+    RaiseEvent KeyUp(KeyCode, Shift)
+End Sub
+
+Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    RaiseEvent MouseDown(Button, Shift, X, Y)
+    pvHandleMouseDown Button, Shift, X, Y
 End Sub
 
 Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
     Const FUNC_NAME     As String = "UserControl_MouseMove"
     
     On Error GoTo EH
+    RaiseEvent MouseMove(Button, Shift, X, Y)
     If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
         If Not pvState(ucsBstHover) Then
             If pvRegisterCancelMode(Me) Then
@@ -1536,11 +1905,15 @@ EH:
 End Sub
 
 Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    Const FUNC_NAME     As String = "UserControl_MouseUp"
+    
+    On Error GoTo EH
+    RaiseEvent MouseUp(Button, Shift, X, Y)
     If (Button And vbLeftButton) <> 0 Then
         pvState(ucsBstPressed) = False
     End If
     If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
-        Call RedrawWindow(ContainerHwnd, True)
+        pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
         If (m_nDownButton And Button And vbLeftButton) <> 0 Then
             RaiseEvent Click
         ElseIf (m_nDownButton And Button And vbRightButton) <> 0 Then
@@ -1548,10 +1921,14 @@ Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single
         End If
     End If
     m_nDownButton = 0
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_DblClick()
-    UserControl_MouseDown vbLeftButton, m_nDownShift, m_sngDownX, m_sngDownY
+    pvHandleMouseDown vbLeftButton, m_nDownShift, m_sngDownX, m_sngDownY
     RaiseEvent DblClick
 End Sub
 
@@ -1563,6 +1940,7 @@ Private Sub UserControl_Paint()
     If Not m_bShown Then
         m_bShown = True
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
+        pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
     End If
     If m_hBitmap <> 0 Then
         If GdipCreateFromHDC(hDC, hGraphics) <> 0 Then
@@ -1596,11 +1974,29 @@ EH:
 End Sub
 
 Private Sub UserControl_EnterFocus()
-    pvState(ucsBstFocused) = True
+    Const FUNC_NAME     As String = "UserControl_EnterFocus"
+    
+    On Error GoTo EH
+    If Not m_bManualFocus Then
+        pvState(ucsBstFocused) = True
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_ExitFocus()
-    pvState(ucsBstFocused) = False
+    Const FUNC_NAME     As String = "UserControl_ExitFocus"
+    
+    On Error GoTo EH
+    If Not m_bManualFocus Then
+        pvState(ucsBstFocused) = False
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_InitProperties()
@@ -1614,6 +2010,8 @@ Private Sub UserControl_InitProperties()
     Caption = Ambient.DisplayName
     Set Font = Ambient.Font
     ForeColor = DEF_FORECOLOR
+    ManualFocus = DEF_MANUALFOCUS
+    MaskColor = DEF_MASKCOLOR
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -1629,9 +2027,11 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         Enabled = .ReadProperty("Enabled", DEF_ENABLED)
         Opacity = .ReadProperty("Opacity", DEF_OPACITY)
         AnimationDuration = .ReadProperty("AnimationDuration", DEF_ANIMATIONDURATION)
-        Caption = .ReadProperty("Caption", Ambient.DisplayName)
+        Caption = .ReadProperty("Caption", vbNullString)
         Set Font = .ReadProperty("Font", Ambient.Font)
         ForeColor = .ReadProperty("ForeColor", DEF_FORECOLOR)
+        ManualFocus = .ReadProperty("ManualFocus", DEF_MANUALFOCUS)
+        MaskColor = .ReadProperty("MaskColor", DEF_MASKCOLOR)
     End With
     Exit Sub
 EH:
@@ -1648,9 +2048,11 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         .WriteProperty "Enabled", Enabled, DEF_ENABLED
         .WriteProperty "Opacity", Opacity, DEF_OPACITY
         .WriteProperty "AnimationDuration", AnimationDuration, DEF_ANIMATIONDURATION
-        .WriteProperty "Caption", Caption, Ambient.DisplayName
+        .WriteProperty "Caption", Caption, vbNullString
         .WriteProperty "Font", Font, Ambient.Font
         .WriteProperty "ForeColor", ForeColor, DEF_FORECOLOR
+        .WriteProperty "ManualFocus", ManualFocus, DEF_MANUALFOCUS
+        .WriteProperty "MaskColor", MaskColor, DEF_MASKCOLOR
     End With
     Exit Sub
 EH:
@@ -1659,19 +2061,34 @@ EH:
 End Sub
 
 Private Sub UserControl_Resize()
+    Const FUNC_NAME     As String = "UserControl_Resize"
+    
+    On Error GoTo EH
+    If m_hFocusBitmap <> 0 Then
+        Call GdipDisposeImage(m_hFocusBitmap)
+        m_hFocusBitmap = 0
+    End If
     Repaint
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
+
+'Private Sub UserControl_Show()
+'    m_bShown = True
+'End Sub
 
 Private Sub UserControl_Hide()
     m_bShown = False
 End Sub
 
 Private Sub UserControl_Initialize()
-    Dim uStartup        As GdiplusStartupInput
+    Dim aInput(0 To 3)  As Long
     
     If GetModuleHandle("gdiplus") = 0 Then
-        uStartup.GdiplusVersion = 1&
-        Call GdiplusStartup(0, uStartup)
+        aInput(0) = 1
+        Call GdiplusStartup(0, aInput(0))
     End If
     pvSetEmptyStyle
 End Sub
@@ -1704,6 +2121,14 @@ Private Sub UserControl_Terminate()
     If m_hFont <> 0 Then
         Call GdipDeleteFont(m_hFont)
         m_hFont = 0
+    End If
+    If m_hPictureBitmap <> 0 Then
+        Call GdipDisposeImage(m_hPictureBitmap)
+        m_hPictureBitmap = 0
+    End If
+    If m_hPictureAttributes <> 0 Then
+        Call GdipDisposeImageAttributes(m_hPictureAttributes)
+        m_hPictureAttributes = 0
     End If
     #If ImplHasTimers Then
         TerminateFireOnceTimer m_uTimer
