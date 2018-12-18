@@ -136,17 +136,11 @@ Private Const CRYPT_STRING_BASE64           As Long = 1
 '--- for GdipSetTextRenderingHint
 Private Const TextRenderingHintAntiAlias    As Long = 4
 Private Const TextRenderingHintClearTypeGridFit As Long = 5
-'--- for PeekMessage
-Private Const PM_REMOVE                     As Long = 1
-'--- Windows Messages
-Private Const WM_PAINT                      As Long = &HF
 '--- DIB Section constants
 Private Const DIB_RGB_COLORS                As Long = 0 '  color table in RGBs
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
-Private Declare Function PeekMessage Lib "user32" Alias "PeekMessageA" (lpMsg As APIMSG, ByVal hWnd As Long, ByVal wMsgFilterMin As Long, ByVal wMsgFilterMax As Long, ByVal wRemoveMsg As Long) As Long
-Private Declare Function DispatchMessage Lib "user32" Alias "DispatchMessageA" (lpMsg As APIMSG) As Long
 Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hDC As Long) As Long
 Private Declare Function DeleteDC Lib "gdi32" (ByVal hDC As Long) As Long
 Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
@@ -155,6 +149,7 @@ Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA"
 Private Declare Function GetIconInfo Lib "user32" (ByVal hIcon As Long, piconinfo As ICONINFO) As Long
 Private Declare Function GetDIBits Lib "gdi32" (ByVal hDC As Long, ByVal hBitmap As Long, ByVal nStartScan As Long, ByVal nNumScans As Long, lpBits As Any, lpBI As BITMAPINFOHEADER, ByVal wUsage As Long) As Long
 Private Declare Function CreateDIBSection Lib "gdi32" (ByVal hDC As Long, lpBitsInfo As BITMAPINFOHEADER, ByVal wUsage As Long, lpBits As Long, ByVal Handle As Long, ByVal dw As Long) As Long
+Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, ByVal Scan0 As Long, hBitmap As Long) As Long
@@ -232,20 +227,6 @@ Private Type UcsRgbQuad
     G                   As Byte
     B                   As Byte
     A                   As Byte
-End Type
-
-Private Type APIPOINT
-    X                   As Long
-    Y                   As Long
-End Type
-
-Private Type APIMSG
-    hWnd                As Long
-    lMessage            As Long
-    wParam              As Long
-    lParam              As Long
-    lTime               As Long
-    pt                  As APIPOINT
 End Type
 
 Private Type ICONINFO
@@ -845,6 +826,10 @@ End Property
 ' Methods
 '=========================================================================
 
+Public Sub Refresh()
+    UserControl.Refresh
+End Sub
+
 Public Sub Repaint()
     Const FUNC_NAME     As String = "Repaint"
     
@@ -852,8 +837,8 @@ Public Sub Repaint()
     If m_bShown Then
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
-        Refresh
-        pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
+        UserControl.Refresh
+        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
     Exit Sub
 EH:
@@ -1230,9 +1215,6 @@ Private Function pvPreparePicture(oPicture As StdPicture, ByVal clrMask As OLE_C
                     If GetDIBits(hMemDC, uInfo.hbmColor, 0, lHeight, baColorBits(0), uHdr, DIB_RGB_COLORS) = 0 Then
                         GoTo QH
                     End If
-                    If GdipCreateBitmapFromScan0(lWidth, lHeight, 4 * lWidth, PixelFormat32bppARGB, VarPtr(baColorBits(0)), hTempBitmap) <> 0 Then
-                        GoTo QH
-                    End If
                     For lIdx = 3 To UBound(baColorBits) Step 4
                         If baColorBits(lIdx) <> 0 Then
                             bHasAlpha = True
@@ -1245,6 +1227,9 @@ Private Function pvPreparePicture(oPicture As StdPicture, ByVal clrMask As OLE_C
                             GoTo QH
                         End If
                     Else
+                        If GdipCreateBitmapFromScan0(lWidth, lHeight, 4 * lWidth, PixelFormat32bppARGB, VarPtr(baColorBits(0)), hTempBitmap) <> 0 Then
+                            GoTo QH
+                        End If
                         '--- note: pixel format (or size) *must* differ from hTempBitmap's one for actual
                         '---   memcpy to happen (PixelFormat32bppARGB -> PixelFormat32bppPARGB)
                         If GdipCloneBitmapAreaI(0, 0, lWidth, lHeight, PixelFormat32bppPARGB, hTempBitmap, hNewBitmap) <> 0 Then
@@ -1432,7 +1417,7 @@ Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Singl
     If Not pvPrepareAttribs(sngAlpha2, m_hAttributes) Then
         GoTo QH
     End If
-    Refresh
+    UserControl.Refresh
     '--- success
     pvAnimateState = True
 QH:
@@ -1782,20 +1767,12 @@ Private Sub pvHandleClick()
     On Error GoTo EH
     pvState(ucsBstPressed) = True
     pvState(ucsBstPressed) = False
-    pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
+    Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     RaiseEvent Click
     Exit Sub
 EH:
     PrintError FUNC_NAME
     Resume Next
-End Sub
-
-Private Sub pvPumpMessages(ByVal hWnd As Long, ByVal lFromMsg As Long, ByVal lToMsg As Long)
-    Dim uMsg            As APIMSG
-    
-    Do While PeekMessage(uMsg, hWnd, lFromMsg, lToMsg, PM_REMOVE) <> 0
-        Call DispatchMessage(uMsg)
-    Loop
 End Sub
 
 Private Sub pvRenderPicture(pPicture As IPicture, hDC As Long, X As Long, Y As Long, cx As Long, cy As Long, xSrc As OLE_XPOS_HIMETRIC, ySrc As OLE_YPOS_HIMETRIC, cxSrc As OLE_XSIZE_HIMETRIC, cySrc As OLE_YSIZE_HIMETRIC)
@@ -1913,7 +1890,7 @@ Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single
         pvState(ucsBstPressed) = False
     End If
     If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
-        pvPumpMessages ContainerHwnd, WM_PAINT, WM_PAINT
+        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
         If (m_nDownButton And Button And vbLeftButton) <> 0 Then
             RaiseEvent Click
         ElseIf (m_nDownButton And Button And vbRightButton) <> 0 Then
