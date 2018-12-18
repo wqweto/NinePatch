@@ -33,7 +33,7 @@ Private Const GMEM_MOVEABLE                 As Long = 2
 '--- for GdipBitmapLockBits
 Private Const PixelFormat32bppARGB          As Long = &H26200A
 '--- for GdipSetInterpolationMode
-Private Const InterpolationModeHighQuality  As Long = 2
+'Private Const InterpolationModeHighQuality  As Long = 2
 '--- for GdipSetPixelOffsetMode
 Private Const PixelOffsetModeHighQuality    As Long = 2
 '--- for GdipDrawImageXxx
@@ -55,7 +55,8 @@ Private Declare Function GlobalUnlock Lib "kernel32" (ByVal hMem As Long) As Lon
 Private Declare Function GlobalFree Lib "kernel32" (ByVal hMem As Long) As Long
 Private Declare Function CreateStreamOnHGlobal Lib "ole32" (ByVal hGlobal As Long, ByVal fDeleteOnRelease As Long, ppstm As Any) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, uInputBuf As GdiplusStartupInput, Optional ByVal lOutputBuf As Long = 0) As Long
+'--- gdi+
+Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipLoadImageFromFile Lib "gdiplus" (ByVal lFilenamePtr As Long, hImage As Long) As Long
 Private Declare Function GdipLoadImageFromStream Lib "gdiplus" (ByVal pStream As IUnknown, hImage As Long) As Long
 Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal hImage As Long, sngWidth As Single, sngHeight As Single) As Long
@@ -82,13 +83,6 @@ Private Declare Function GdipCreateTexture2I Lib "gdiplus" (ByVal hImage As Long
 Private Declare Function GdipScaleTextureTransform Lib "gdiplus" (ByVal hBrush As Long, ByVal sngX As Single, ByVal sngY As Single, ByVal lOrder As Long) As Long
 Private Declare Function GdipBeginContainer2 Lib "gdiplus" (ByVal hGraphics As Long, hState As Long) As Long
 Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long, ByVal hState As Long) As Long
-
-Private Type GdiplusStartupInput
-    GdiplusVersion           As Long
-    DebugEventCallback       As Long
-    SuppressBackgroundThread As Long
-    SuppressExternalCodecs   As Long
-End Type
 
 Private Type APIRECTL
     Left                As Long
@@ -229,7 +223,6 @@ Public Function CalcClientRect( _
         Height = 0
     End If
 End Function
-
 
 Public Function DrawToDC(ByVal hDstDC As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long) As Boolean
     Const FUNC_NAME     As String = "DrawToDC"
@@ -571,11 +564,11 @@ End Function
 '=========================================================================
 
 Private Sub Class_Initialize()
-    Dim uStartup        As GdiplusStartupInput
+    Dim aInput(0 To 3)  As Long
     
     If GetModuleHandle("gdiplus") = 0 Then
-        uStartup.GdiplusVersion = 1&
-        Call GdiplusStartup(0, uStartup)
+        aInput(0) = 1
+        Call GdiplusStartup(0, aInput(0))
     End If
     ReDim m_uHorParts(0 To 0) As UcsPartInfoType
     ReDim m_uVertParts(0 To 0) As UcsPartInfoType
