@@ -138,15 +138,19 @@ Private Const TextRenderingHintAntiAlias    As Long = 4
 Private Const TextRenderingHintClearTypeGridFit As Long = 5
 '--- DIB Section constants
 Private Const DIB_RGB_COLORS                As Long = 0 '  color table in RGBs
+'--- for GdipBitmapLockBits
+Private Const ImageLockModeRead             As Long = &H1
+Private Const ImageLockModeWrite            As Long = &H2
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
+Private Declare Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As Long
 Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
 Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hDC As Long) As Long
 Private Declare Function DeleteDC Lib "gdi32" (ByVal hDC As Long) As Long
 Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
 Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As Long) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-Private Declare Function GetIconInfo Lib "user32" (ByVal hIcon As Long, piconinfo As ICONINFO) As Long
+Private Declare Function GetIconInfo Lib "user32" (ByVal hIcon As Long, pIconInfo As ICONINFO) As Long
 Private Declare Function GetDIBits Lib "gdi32" (ByVal hDC As Long, ByVal hBitmap As Long, ByVal nStartScan As Long, ByVal nNumScans As Long, lpBits As Any, lpBI As BITMAPINFOHEADER, ByVal wUsage As Long) As Long
 Private Declare Function CreateDIBSection Lib "gdi32" (ByVal hDC As Long, lpBitsInfo As BITMAPINFOHEADER, ByVal wUsage As Long, lpBits As Long, ByVal Handle As Long, ByVal dw As Long) As Long
 Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
@@ -159,8 +163,8 @@ Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Lo
 Private Declare Function GdipDrawImageRectRect Lib "gdiplus" (ByVal hGraphics As Long, ByVal hImage As Long, ByVal dstX As Single, ByVal dstY As Single, ByVal dstWidth As Single, ByVal dstHeight As Single, ByVal srcX As Single, ByVal srcY As Single, ByVal srcWidth As Single, ByVal srcHeight As Single, Optional ByVal srcUnit As Long = UnitPixel, Optional ByVal hImageAttributes As Long, Optional ByVal pfnCallback As Long, Optional ByVal lCallbackData As Long) As Long
 Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hDC As Long, hGraphics As Long) As Long
 Private Declare Function GdipCreateImageAttributes Lib "gdiplus" (hImgAttr As Long) As Long
-Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal hImgAttr As Long, ByVal clrAdjust As Long, ByVal clrAdjustEnabled As Long, clrMatrix As Any, grayMatrix As Any, ByVal clrMatrixFlags As Long) As Long
-Private Declare Function GdipSetImageAttributesColorKeys Lib "gdiplus" (ByVal imgAttr As Long, ByVal adjustType As Long, ByVal adjustEnabled As Long, ByVal clrLow As Long, ByVal clrHigh As Long) As Long
+Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal hImgAttr As Long, ByVal lAdjustType As Long, ByVal fAdjustEnabled As Long, clrMatrix As Any, grayMatrix As Any, ByVal lFlags As Long) As Long
+Private Declare Function GdipSetImageAttributesColorKeys Lib "gdiplus" (ByVal hImgAttr As Long, ByVal lAdjustType As Long, ByVal fAdjustEnabled As Long, ByVal clrLow As Long, ByVal clrHigh As Long) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal hImgAttr As Long) As Long
 Private Declare Function GdipBitmapGetPixel Lib "gdiplus" (ByVal hBitmap As Long, ByVal lX As Long, ByVal lY As Long, clrCurrent As Any) As Long
 Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal lNamePtr As Long, ByVal hFontCollection As Long, hFontFamily As Long) As Long
@@ -181,6 +185,9 @@ Private Declare Function GdipCloneBitmapAreaI Lib "gdiplus" (ByVal lX As Long, B
 Private Declare Function GdipCreateBitmapFromHBITMAP Lib "gdiplus" (ByVal hBmp As Long, ByVal hPal As Long, hBtmap As Long) As Long
 Private Declare Function GdipCreateBitmapFromHICON Lib "gdiplus" (ByVal hIcon As Long, hBitmap As Long) As Long
 Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Long, ByRef nWidth As Single, ByRef nHeight As Single) As Long '
+Private Declare Function GdipCloneImage Lib "gdiplus" (ByVal hImage As Long, hCloneImage As Long) As Long
+Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
+Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
 #If Not ImplUseShared Then
     Private Declare Function GetSystemTimeAsFileTime Lib "kernel32" (lpSystemTimeAsFileTime As Currency) As Long
     Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
@@ -235,6 +242,25 @@ Private Type ICONINFO
     yHotspot            As Long
     hbmMask             As Long
     hbmColor            As Long
+End Type
+
+Private Type BitmapData
+    Width               As Long
+    Height              As Long
+    Stride              As Long
+    PixelFormat         As Long
+    Scan0               As Long
+    Reserved            As Long
+End Type
+
+Private Type SAFEARRAY1D
+    cDims               As Integer
+    fFeatures           As Integer
+    cbElements          As Long
+    cLocks              As Long
+    pvData              As Long
+    cElements           As Long
+    lLbound             As Long
 End Type
 
 '=========================================================================
@@ -320,9 +346,9 @@ Private m_clrMask               As OLE_COLOR
 '--- run-time
 Private m_eState                As UcsNineButtonStateEnum
 Private m_hPrevBitmap           As Long
-Private m_hPrevAttributes       As Long
 Private m_hBitmap               As Long
 Private m_hAttributes           As Long
+Private m_sngBitmapAlpha        As Single
 Private m_hFocusBitmap          As Long
 Private m_hFocusAttributes      As Long
 Private m_nDownButton           As Integer
@@ -602,6 +628,30 @@ Property Let ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = 
     m_uButton(eState).ImageArray = baValue
     Set oPatch = New cNinePatch
     If oPatch.LoadFromByteArray(baValue) Then
+        Set m_uButton(eState).ImagePatch = oPatch
+    Else
+        Set m_uButton(eState).ImagePatch = Nothing
+    End If
+    Repaint
+End Property
+
+Property Get ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Long
+    If eState < 0 Then
+        eState = m_eState
+    End If
+    If Not m_uButton(eState).ImagePatch Is Nothing Then
+        ButtonImageBitmap = m_uButton(eState).ImagePatch.Bitmap
+    End If
+End Property
+
+Property Let ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal hBitmap As Long)
+    Dim oPatch          As cNinePatch
+    
+    If eState < 0 Then
+        eState = m_eState
+    End If
+    Set oPatch = New cNinePatch
+    If oPatch.LoadFromBitmap(hBitmap) Then
         Set m_uButton(eState).ImagePatch = oPatch
     Else
         Set m_uButton(eState).ImagePatch = Nothing
@@ -1007,6 +1057,7 @@ Private Function pvPrepareBitmap(ByVal eState As UcsNineButtonStateEnum, hFocusB
     '-- success
     pvPrepareBitmap = True
 QH:
+    On Error Resume Next
     If hFont <> 0 And hFont <> m_hFont Then
         Call GdipDeleteFont(hFont)
         hFont = 0
@@ -1055,7 +1106,7 @@ Private Function pvPrepareAttribs(ByVal sngAlpha As Single, hAttributes As Long)
     clrMatrix(2, 2) = 1
     clrMatrix(3, 3) = sngAlpha
     clrMatrix(4, 4) = 1
-    If GdipSetImageAttributesColorMatrix(hNewAttributes, 0, 1, clrMatrix(0, 0), clrMatrix(0, 0), 0) <> 0 Then '
+    If GdipSetImageAttributesColorMatrix(hNewAttributes, 0, 1, clrMatrix(0, 0), clrMatrix(0, 0), 0) <> 0 Then
         GoTo QH
     End If
     '--- commit
@@ -1068,6 +1119,7 @@ Private Function pvPrepareAttribs(ByVal sngAlpha As Single, hAttributes As Long)
     '--- success
     pvPrepareAttribs = True
 QH:
+    On Error Resume Next
     If hNewAttributes <> 0 Then
         Call GdipDisposeImageAttributes(hNewAttributes)
         hNewAttributes = 0
@@ -1109,6 +1161,7 @@ Private Function pvPrepareFont(oFont As StdFont, hFont As Long) As Boolean
     '--- success
     pvPrepareFont = True
 QH:
+    On Error Resume Next
     If hFamily <> 0 Then
         Call GdipDeleteFontFamily(hFamily)
         hFamily = 0
@@ -1269,6 +1322,7 @@ Private Function pvPreparePicture(oPicture As StdPicture, ByVal clrMask As OLE_C
     '--- success
     pvPreparePicture = True
 QH:
+    On Error Resume Next
     If hNewBitmap <> 0 Then
         Call GdipDisposeImage(hNewBitmap)
         hNewBitmap = 0
@@ -1392,49 +1446,35 @@ End Function
 
 Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Single, ByVal sngOpacity2 As Single) As Boolean
     Const FUNC_NAME     As String = "pvAnimateState"
-    Dim sngAlpha1       As Single
-    Dim sngAlpha2       As Single
-    Dim dblHalf         As Double
+    Dim sngOpacity      As Single
+    Dim dblFull         As Double
 
     On Error GoTo EH
-    sngAlpha1 = sngOpacity1 * 0
-    sngAlpha2 = sngOpacity2 * 1
+    sngOpacity = sngOpacity2
+    m_sngBitmapAlpha = 1
     #If ImplHasTimers Then
-        dblHalf = (m_dblAnimationEnd - m_dblAnimationStart) / 2
-        If dblHalf > DBL_EPLISON Then
-            If dblElapsed < dblHalf Then
-                sngAlpha1 = sngOpacity1 * 1
-                sngAlpha2 = sngOpacity2 * dblElapsed / dblHalf
-            ElseIf dblElapsed < 2 * dblHalf Then
-                sngAlpha1 = sngOpacity1 * (2 * dblHalf - dblElapsed) / dblHalf
-                sngAlpha2 = sngOpacity2 * 1
-            End If
+        dblFull = (m_dblAnimationEnd - m_dblAnimationStart)
+        If dblFull > DBL_EPLISON And dblElapsed <= dblFull Then
+            sngOpacity = sngOpacity1 + (sngOpacity2 - sngOpacity1) * dblElapsed / dblFull
+            m_sngBitmapAlpha = dblElapsed / dblFull
         End If
     #End If
-    If Not pvPrepareAttribs(sngAlpha1, m_hPrevAttributes) Then
-        GoTo QH
-    End If
-    If Not pvPrepareAttribs(sngAlpha2, m_hAttributes) Then
+    If Not pvPrepareAttribs(sngOpacity, m_hAttributes) Then
         GoTo QH
     End If
     UserControl.Refresh
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+        InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectNineButtonTimerProc
+    #End If
     '--- success
     pvAnimateState = True
+    Exit Function
 QH:
-    #If ImplHasTimers Then
-        If sngAlpha1 > DBL_EPLISON Then
-            TerminateFireOnceTimer m_uTimer
-            InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectNineButtonTimerProc, Delay:=1
-            Exit Function
-        End If
-    #End If
+    On Error Resume Next
     If m_hPrevBitmap <> 0 Then
         Call GdipDisposeImage(m_hPrevBitmap)
         m_hPrevBitmap = 0
-    End If
-    If m_hPrevAttributes <> 0 Then
-        Call GdipDisposeImageAttributes(m_hPrevAttributes)
-        m_hPrevAttributes = 0
     End If
     Exit Function
 EH:
@@ -1714,6 +1754,7 @@ Private Function pvResExtract( _
     '--- success
     Set pvResExtract = oRetVal
 QH:
+    On Error Resume Next
     If hNewBitmap <> 0 Then
         Call GdipDisposeImage(hNewBitmap)
         hNewBitmap = 0
@@ -1775,13 +1816,74 @@ EH:
     Resume Next
 End Sub
 
-Private Sub pvRenderPicture(pPicture As IPicture, hDC As Long, X As Long, Y As Long, cx As Long, cy As Long, xSrc As OLE_XPOS_HIMETRIC, ySrc As OLE_YPOS_HIMETRIC, cxSrc As OLE_XSIZE_HIMETRIC, cySrc As OLE_YSIZE_HIMETRIC)
+Private Sub pvRenderPicture(pPicture As IPicture, ByVal hDC As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal xSrc As OLE_XPOS_HIMETRIC, ByVal ySrc As OLE_YPOS_HIMETRIC, ByVal cxSrc As OLE_XSIZE_HIMETRIC, ByVal cySrc As OLE_YSIZE_HIMETRIC)
     If Not pPicture Is Nothing Then
         If pPicture.Handle <> 0 Then
             pPicture.Render hDC, X, Y, cx, cy, xSrc, ySrc, cxSrc, cySrc, ByVal 0
         End If
     End If
 End Sub
+
+Private Function pvMergeBitmap(ByVal hDstBitmap As Long, ByVal hSrcBitmap As Long, ByVal lDstAlpha As Long, ByVal lSrcAlpha As Long) As Boolean
+    Const FUNC_NAME     As String = "pvMergeBitmap"
+    Dim uDstData        As BitmapData
+    Dim uSrcData        As BitmapData
+    Dim uDstArray       As SAFEARRAY1D
+    Dim uSrcArray       As SAFEARRAY1D
+    Dim baDst()         As Byte
+    Dim baSrc()         As Byte
+    Dim lIdx            As Long
+    Dim lG              As Long
+
+    On Error GoTo EH
+    If GdipBitmapLockBits(hDstBitmap, ByVal 0, ImageLockModeRead Or ImageLockModeWrite, PixelFormat32bppARGB, uDstData) <> 0 Then
+        GoTo QH
+    End If
+    If GdipBitmapLockBits(hSrcBitmap, ByVal 0, ImageLockModeRead, PixelFormat32bppARGB, uSrcData) <> 0 Then
+        GoTo QH
+    End If
+    With uDstArray
+        .cDims = 1
+        .fFeatures = 1 ' FADF_AUTO
+        .cbElements = 1
+        .cLocks = 1
+        .pvData = uDstData.Scan0
+        .cElements = uDstData.Stride * uDstData.Height
+    End With
+    Call CopyMemory(ByVal ArrPtr(baDst), VarPtr(uDstArray), 4)
+    With uSrcArray
+        .cDims = 1
+        .fFeatures = 1 ' FADF_AUTO
+        .cbElements = 1
+        .cLocks = 1
+        .pvData = uSrcData.Scan0
+        .cElements = uSrcData.Stride * uSrcData.Height
+    End With
+    Call CopyMemory(ByVal ArrPtr(baSrc), VarPtr(uSrcArray), 4)
+    For lIdx = 0 To UBound(baDst)
+        lG = (baDst(lIdx) * lDstAlpha + baSrc(lIdx) * lSrcAlpha) \ 255
+        If lG > 255 Then
+            lG = 255
+        ElseIf lG < 0 Then
+            lG = 0
+        End If
+        baDst(lIdx) = lG
+    Next
+    '--- success
+    pvMergeBitmap = True
+QH:
+    On Error Resume Next
+    If uDstData.Scan0 <> 0 Then
+        Call GdipBitmapUnlockBits(hDstBitmap, uDstData)
+    End If
+    If uSrcData.Scan0 <> 0 Then
+        Call GdipBitmapUnlockBits(hSrcBitmap, uSrcData)
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
 
 #If Not ImplUseShared Then
 Private Property Get DateTimer() As Double
@@ -1912,6 +2014,8 @@ End Sub
 Private Sub UserControl_Paint()
     Const FUNC_NAME     As String = "UserControl_Paint"
     Dim hGraphics       As Long
+    Dim hMergeBitmap    As Long
+    Dim lSrcAlpha       As Long
     
     On Error GoTo EH
     If Not m_bShown Then
@@ -1920,6 +2024,19 @@ Private Sub UserControl_Paint()
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
     End If
     If m_hBitmap <> 0 Then
+        If m_hPrevBitmap <> 0 Then
+            lSrcAlpha = Int(m_sngBitmapAlpha * 255 + 0.5)
+            If lSrcAlpha < 255 Then
+                If GdipCloneImage(m_hPrevBitmap, hMergeBitmap) <> 0 Then
+                    GoTo QH
+                End If
+                If lSrcAlpha > 0 Then
+                    If Not pvMergeBitmap(hMergeBitmap, m_hBitmap, 255 - lSrcAlpha, lSrcAlpha) Then
+                        GoTo QH
+                    End If
+                End If
+            End If
+        End If
         If GdipCreateFromHDC(hDC, hGraphics) <> 0 Then
             GoTo QH
         End If
@@ -1928,21 +2045,21 @@ Private Sub UserControl_Paint()
                 GoTo QH
             End If
         End If
-        If m_hPrevBitmap <> 0 Then
-            If GdipDrawImageRectRect(hGraphics, m_hPrevBitmap, 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hPrevAttributes) <> 0 Then
-                GoTo QH
-            End If
-        End If
-        If GdipDrawImageRectRect(hGraphics, m_hBitmap, 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hAttributes) <> 0 Then
+        If GdipDrawImageRectRect(hGraphics, IIf(hMergeBitmap <> 0, hMergeBitmap, m_hBitmap), 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hAttributes) <> 0 Then
             GoTo QH
         End If
     Else
         Line (0, 0)-(ScaleWidth - 1, ScaleHeight - 1), &HE0FFFF, BF
     End If
 QH:
+    On Error Resume Next
     If hGraphics <> 0 Then
         Call GdipDeleteGraphics(hGraphics)
         hGraphics = 0
+    End If
+    If hMergeBitmap <> 0 Then
+        Call GdipDisposeImage(hMergeBitmap)
+        hMergeBitmap = 0
     End If
     Exit Sub
 EH:
@@ -2082,10 +2199,6 @@ Private Sub UserControl_Terminate()
     If m_hPrevBitmap <> 0 Then
         Call GdipDisposeImage(m_hPrevBitmap)
         m_hPrevBitmap = 0
-    End If
-    If m_hPrevAttributes <> 0 Then
-        Call GdipDisposeImageAttributes(m_hPrevAttributes)
-        m_hPrevAttributes = 0
     End If
     If m_hFocusBitmap <> 0 Then
         Call GdipDisposeImage(m_hFocusBitmap)
