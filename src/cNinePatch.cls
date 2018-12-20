@@ -59,9 +59,8 @@ Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA"
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipLoadImageFromFile Lib "gdiplus" (ByVal lFilenamePtr As Long, hImage As Long) As Long
 Private Declare Function GdipLoadImageFromStream Lib "gdiplus" (ByVal pStream As IUnknown, hImage As Long) As Long
-Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal hImage As Long, sngWidth As Single, sngHeight As Single) As Long
 Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal hImage As Long) As Long
-Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, uRect As APIRECTL, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As APIBITMAPDATA) As Long
+Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, uRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As APIBITMAPDATA) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As APIBITMAPDATA) As Long
 Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hDC As Long, hGraphics As Long) As Long
 Private Declare Function GdipGetImageGraphicsContext Lib "gdiplus" (ByVal hImage As Long, hGraphics As Long) As Long
@@ -136,6 +135,14 @@ Private Function RaiseError(sFunction As String) As VbMsgBoxResult
 End Function
 
 '=========================================================================
+' Properties
+'=========================================================================
+
+Property Get Bitmap() As Long
+    Bitmap = m_hBitmap
+End Property
+
+'=========================================================================
 ' Methods
 '=========================================================================
 
@@ -208,12 +215,12 @@ End Function
 Public Function CalcClientRect( _
         ByVal BoxWidth As Long, _
         ByVal BoxHeight As Long, _
-        Optional X As Long, _
-        Optional Y As Long, _
+        Optional x As Long, _
+        Optional y As Long, _
         Optional Width As Long, _
         Optional Height As Long) As Boolean
-    X = m_uPadding.Left
-    Y = m_uPadding.Top
+    x = m_uPadding.Left
+    y = m_uPadding.Top
     Width = BoxWidth - m_uPadding.Left - m_uPadding.Right
     If Width < 0 Then
         Width = 0
@@ -235,6 +242,7 @@ Public Function DrawToDC(ByVal hDstDC As Long, ByVal lX As Long, ByVal lY As Lon
     '-- success
     DrawToDC = DrawToGraphics(hGraphics, lX, lY, lWidth, lHeight)
 QH:
+    On Error Resume Next
     If hGraphics <> 0 Then
         Call GdipDeleteGraphics(hGraphics)
         hGraphics = 0
@@ -331,6 +339,7 @@ Public Function DrawToGraphics(ByVal hGraphics As Long, ByVal lX As Long, ByVal 
     '-- success
     DrawToGraphics = True
 QH:
+    On Error Resume Next
     If hBrush <> 0 Then
         Call GdipDeleteBrush(hBrush)
         hBrush = 0
@@ -402,26 +411,18 @@ End Function
 
 Private Function pvParseDataFrame() As Boolean
     Const FUNC_NAME     As String = "pvParseDataFrame"
-    Dim sngOrigWidth    As Single
-    Dim sngOrigHeight   As Single
-    Dim uRect           As APIRECTL
     Dim uData           As APIBITMAPDATA
     Dim clrStatic       As Long
     Dim clrRepeat       As Long
     Dim uPadParts()     As UcsPartInfoType
+    Dim uEmpty          As APIRECTL
     
     On Error GoTo EH
-    If GdipGetImageDimension(m_hBitmap, sngOrigWidth, sngOrigHeight) <> 0 Then
+    If GdipBitmapLockBits(m_hBitmap, ByVal 0, 1, PixelFormat32bppARGB, uData) <> 0 Then
         GoTo QH
     End If
-    m_lWidth = sngOrigWidth
-    m_lHeight = sngOrigHeight
-    m_uPadding = uRect
-    uRect.Right = m_lWidth
-    uRect.Bottom = m_lHeight
-    If GdipBitmapLockBits(m_hBitmap, uRect, 1, PixelFormat32bppARGB, uData) <> 0 Then
-        GoTo QH
-    End If
+    m_lWidth = uData.Width
+    m_lHeight = uData.Height
     '--- top leftmost pixel
     clrStatic = Peek(uData.Scan0)
     '--- top rightmost pixel
@@ -433,6 +434,7 @@ Private Function pvParseDataFrame() As Boolean
         GoTo QH
     End If
     '--- figure out padding definition
+    m_uPadding = uEmpty
     If pvGetParts(UnsignedAdd(uData.Scan0, uData.Stride * (m_lHeight - 1)), 4, m_lWidth - 2, clrStatic, clrRepeat, uPadParts) Then
         If UBound(uPadParts) = 3 Then
             If uPadParts(1).Type = ucsPrtStatic And uPadParts(2).Type <> ucsPrtStatic And uPadParts(3).Type = ucsPrtStatic Then
@@ -455,6 +457,7 @@ Private Function pvParseDataFrame() As Boolean
     pvParseDataFrame = pvClearDataFrame(clrStatic)
     Exit Function
 QH:
+    On Error Resume Next
     If uData.Scan0 <> 0 Then
         Call GdipBitmapUnlockBits(m_hBitmap, uData)
         uData.Scan0 = 0
@@ -487,6 +490,7 @@ Private Function pvClearDataFrame(ByVal clrStatic As Long) As Boolean
     '--- success
     pvClearDataFrame = True
 QH:
+    On Error Resume Next
     If hBrush <> 0 Then
         Call GdipDeleteBrush(hBrush)
         hBrush = 0
