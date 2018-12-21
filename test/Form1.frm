@@ -120,19 +120,11 @@ Begin VB.Form Form1
       TabIndex        =   36
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   28
-      Caption         =   "ctxNineButton28"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   28
+      caption         =   "ctxNineButton28"
+      font            =   "Form1.frx":009C
    End
    Begin Project1.ctxNineButton ctxNineButton27 
       Height          =   600
@@ -140,21 +132,13 @@ Begin VB.Form Form1
       TabIndex        =   32
       Top             =   2352
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   21
-      AnimationDuration=   0.2
-      Caption         =   "Dark Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   4209204
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   21
+      animationduration=   0.2
+      caption         =   "Dark Outline"
+      font            =   "Form1.frx":00C4
+      forecolor       =   4209204
    End
    Begin Project1.ctxNineButton ctxNineButton26 
       Height          =   600
@@ -162,21 +146,13 @@ Begin VB.Form Form1
       TabIndex        =   31
       Top             =   1680
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   13
-      AnimationDuration=   0.2
-      Caption         =   "Dark"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   13
+      animationduration=   0.2
+      caption         =   "Dark"
+      font            =   "Form1.frx":00EC
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton25 
       Height          =   600
@@ -184,21 +160,13 @@ Begin VB.Form Form1
       TabIndex        =   30
       Top             =   2352
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   20
-      AnimationDuration=   0.2
-      Caption         =   "Light Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   5722185
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   20
+      animationduration=   0.2
+      caption         =   "Light Outline"
+      font            =   "Form1.frx":0114
+      forecolor       =   5722185
    End
    Begin Project1.ctxNineButton ctxNineButton24 
       Height          =   600
@@ -206,21 +174,13 @@ Begin VB.Form Form1
       TabIndex        =   29
       Top             =   1680
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   12
-      AnimationDuration=   0.2
-      Caption         =   "Light"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   5722185
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   12
+      animationduration=   0.2
+      caption         =   "Light"
+      font            =   "Form1.frx":013C
+      forecolor       =   5722185
    End
    Begin Project1.ctxNineButton ctxNineButton23 
       Height          =   600
@@ -228,21 +188,13 @@ Begin VB.Form Form1
       TabIndex        =   28
       Top             =   2352
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   19
-      AnimationDuration=   0.2
-      Caption         =   "Info Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   15903301
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   19
+      animationduration=   0.2
+      caption         =   "Info Outline"
+      font            =   "Form1.frx":0164
+      forecolor       =   15903301
    End
    Begin Project1.ctxNineButton ctxNineButton22 
       Height          =   600
@@ -250,21 +202,13 @@ Begin VB.Form Form1
       TabIndex        =   27
       Top             =   1680
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   11
-      AnimationDuration=   0.2
-      Caption         =   "Info"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   11
+      animationduration=   0.2
+      caption         =   "Info"
+      font            =   "Form1.frx":018C
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton21 
       Height          =   600
@@ -272,21 +216,13 @@ Begin VB.Form Form1
       TabIndex        =   26
       Top             =   2352
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   18
-      AnimationDuration=   0.2
-      Caption         =   "Warning Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   1033457
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   18
+      animationduration=   0.2
+      caption         =   "Warning Outline"
+      font            =   "Form1.frx":01B4
+      forecolor       =   1033457
    End
    Begin Project1.ctxNineButton ctxNineButton20 
       Height          =   600
@@ -294,21 +230,13 @@ Begin VB.Form Form1
       TabIndex        =   25
       Top             =   1680
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   10
-      AnimationDuration=   0.2
-      Caption         =   "Warning"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   10
+      animationduration=   0.2
+      caption         =   "Warning"
+      font            =   "Form1.frx":01DC
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton19 
       Height          =   600
@@ -316,21 +244,13 @@ Begin VB.Form Form1
       TabIndex        =   24
       Top             =   840
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   17
-      AnimationDuration=   0.2
-      Caption         =   "Danger Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   2040013
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   17
+      animationduration=   0.2
+      caption         =   "Danger Outline"
+      font            =   "Form1.frx":0204
+      forecolor       =   2040013
    End
    Begin Project1.ctxNineButton ctxNineButton18 
       Height          =   600
@@ -338,21 +258,13 @@ Begin VB.Form Form1
       TabIndex        =   23
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   9
-      AnimationDuration=   0.2
-      Caption         =   "Danger"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   9
+      animationduration=   0.2
+      caption         =   "Danger"
+      font            =   "Form1.frx":022C
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton17 
       Height          =   600
@@ -360,21 +272,13 @@ Begin VB.Form Form1
       TabIndex        =   22
       Top             =   840
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   16
-      AnimationDuration=   0.2
-      Caption         =   "Success Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   47710
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   16
+      animationduration=   0.2
+      caption         =   "Success Outline"
+      font            =   "Form1.frx":0254
+      forecolor       =   47710
    End
    Begin Project1.ctxNineButton ctxNineButton16 
       Height          =   600
@@ -382,21 +286,13 @@ Begin VB.Form Form1
       TabIndex        =   21
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   8
-      AnimationDuration=   0.2
-      Caption         =   "Success"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   8
+      animationduration=   0.2
+      caption         =   "Success"
+      font            =   "Form1.frx":027C
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton14 
       Height          =   600
@@ -404,21 +300,13 @@ Begin VB.Form Form1
       TabIndex        =   20
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   7
-      AnimationDuration=   0.2
-      Caption         =   "Secondary"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   5722185
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   7
+      animationduration=   0.2
+      caption         =   "Secondary"
+      font            =   "Form1.frx":02A4
+      forecolor       =   5722185
    End
    Begin Project1.ctxNineButton ctxNineButton15 
       Height          =   600
@@ -426,21 +314,13 @@ Begin VB.Form Form1
       TabIndex        =   19
       Top             =   840
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   15
-      AnimationDuration=   0.2
-      Caption         =   "Secondary Outline"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   5722185
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   15
+      animationduration=   0.2
+      caption         =   "Secondary Outline"
+      font            =   "Form1.frx":02CC
+      forecolor       =   5722185
    End
    Begin Project1.ctxNineButton ctxNineButton11 
       Height          =   1524
@@ -448,19 +328,11 @@ Begin VB.Form Form1
       TabIndex        =   16
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   25
-      Caption         =   "ctxNineButton11"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   25
+      caption         =   "ctxNineButton11"
+      font            =   "Form1.frx":02F4
    End
    Begin Project1.ctxNineButton ctxNineButton12 
       Height          =   1524
@@ -468,19 +340,11 @@ Begin VB.Form Form1
       TabIndex        =   15
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   26
-      Caption         =   "ctxNineButton12"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   26
+      caption         =   "ctxNineButton12"
+      font            =   "Form1.frx":031C
    End
    Begin Project1.ctxNineButton ctxNineButton13 
       Height          =   1524
@@ -488,19 +352,11 @@ Begin VB.Form Form1
       TabIndex        =   14
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   27
-      Caption         =   "ctxNineButton13"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   27
+      caption         =   "ctxNineButton13"
+      font            =   "Form1.frx":0344
    End
    Begin Project1.ctxNineButton ctxNineButton10 
       Height          =   1524
@@ -508,19 +364,11 @@ Begin VB.Form Form1
       TabIndex        =   13
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   24
-      Caption         =   "ctxNineButton10"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   24
+      caption         =   "ctxNineButton10"
+      font            =   "Form1.frx":036C
    End
    Begin Project1.ctxNineButton ctxNineButton9 
       Height          =   1524
@@ -528,19 +376,11 @@ Begin VB.Form Form1
       TabIndex        =   12
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   23
-      Caption         =   "ctxNineButton9"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   23
+      caption         =   "ctxNineButton9"
+      font            =   "Form1.frx":0394
    End
    Begin Project1.ctxNineButton ctxNineButton8 
       Height          =   1524
@@ -548,19 +388,11 @@ Begin VB.Form Form1
       TabIndex        =   11
       Top             =   3192
       Width           =   1776
-      _ExtentX        =   3133
-      _ExtentY        =   2688
-      Style           =   22
-      Caption         =   "ctxNineButton8"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   10.2
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   3133
+      _extenty        =   2688
+      style           =   22
+      caption         =   "ctxNineButton8"
+      font            =   "Form1.frx":03BC
    End
    Begin Project1.ctxNineButton ctxNineButton7 
       Height          =   600
@@ -568,21 +400,13 @@ Begin VB.Form Form1
       TabIndex        =   10
       Top             =   840
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   14
-      AnimationDuration=   0.2
-      Caption         =   "Source code"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   13598534
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   14
+      animationduration=   0.2
+      caption         =   "Source code"
+      font            =   "Form1.frx":03E4
+      forecolor       =   13598534
    End
    Begin Project1.ctxNineButton ctxNineButton6 
       Height          =   600
@@ -590,21 +414,13 @@ Begin VB.Form Form1
       TabIndex        =   9
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   6
-      AnimationDuration=   0.2
-      Caption         =   "Send data"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   6
+      animationduration=   0.2
+      caption         =   "Send data"
+      font            =   "Form1.frx":040C
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton5 
       Height          =   600
@@ -612,21 +428,13 @@ Begin VB.Form Form1
       TabIndex        =   8
       Top             =   840
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   5
-      AnimationDuration=   0.2
-      Caption         =   "Revoke all"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   5
+      animationduration=   0.2
+      caption         =   "Revoke all"
+      font            =   "Form1.frx":0434
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton4 
       Height          =   600
@@ -634,21 +442,13 @@ Begin VB.Form Form1
       TabIndex        =   7
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      Style           =   2
-      AnimationDuration=   0.2
-      Caption         =   "Update profile"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   16777215
+      _extentx        =   3429
+      _extenty        =   1058
+      style           =   2
+      animationduration=   0.2
+      caption         =   "Update profile"
+      font            =   "Form1.frx":045C
+      forecolor       =   16777215
    End
    Begin Project1.ctxNineButton ctxNineButton3 
       Height          =   600
@@ -656,20 +456,12 @@ Begin VB.Form Form1
       TabIndex        =   6
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1058
-      AnimationDuration=   0.2
-      Caption         =   "ctxNineButton3"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Segoe UI"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   0
+      _extentx        =   3429
+      _extenty        =   1058
+      animationduration=   0.2
+      caption         =   "ctxNineButton3"
+      font            =   "Form1.frx":0484
+      forecolor       =   0
    End
    Begin Project1.ctxNineButton ctxNineButton2 
       Height          =   936
@@ -677,21 +469,13 @@ Begin VB.Form Form1
       TabIndex        =   4
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1651
-      Style           =   0
-      AnimationDuration=   0.2
-      Caption         =   "ctxNineButton2"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   0
+      _extentx        =   3429
+      _extenty        =   1651
+      style           =   0
+      animationduration=   0.2
+      caption         =   "ctxNineButton2"
+      font            =   "Form1.frx":04AC
+      forecolor       =   0
    End
    Begin Project1.ctxNineButton ctxNineButton1 
       Height          =   936
@@ -699,21 +483,13 @@ Begin VB.Form Form1
       TabIndex        =   5
       Top             =   168
       Width           =   1944
-      _ExtentX        =   3429
-      _ExtentY        =   1651
-      Style           =   16
-      AnimationDuration=   0.2
-      Caption         =   "ctxNineButton1"
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Tahoma"
-         Size            =   9
-         Charset         =   204
-         Weight          =   700
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
-      ForeColor       =   4209204
+      _extentx        =   3429
+      _extenty        =   1651
+      style           =   16
+      animationduration=   0.2
+      caption         =   "ctxNineButton1"
+      font            =   "Form1.frx":04D4
+      forecolor       =   4209204
    End
 End
 Attribute VB_Name = "Form1"
