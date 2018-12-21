@@ -127,7 +127,7 @@ End Type
 '=========================================================================
 
 Private Function PrintError(sFunction As String) As VbMsgBoxResult
-    Debug.Print STR_MODULE_NAME & "." & sFunction & ": " & Err.Description, Timer
+    Debug.Print Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
 End Function
 
 Private Function RaiseError(sFunction As String) As VbMsgBoxResult
@@ -215,12 +215,12 @@ End Function
 Public Function CalcClientRect( _
         ByVal BoxWidth As Long, _
         ByVal BoxHeight As Long, _
-        Optional x As Long, _
-        Optional y As Long, _
+        Optional X As Long, _
+        Optional Y As Long, _
         Optional Width As Long, _
         Optional Height As Long) As Boolean
-    x = m_uPadding.Left
-    y = m_uPadding.Top
+    X = m_uPadding.Left
+    Y = m_uPadding.Top
     Width = BoxWidth - m_uPadding.Left - m_uPadding.Right
     If Width < 0 Then
         Width = 0
