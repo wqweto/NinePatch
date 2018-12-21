@@ -646,12 +646,16 @@ End Property
 
 Property Let ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal hBitmap As Long)
     Dim oPatch          As cNinePatch
+    Dim hNewBitmap      As Long
     
     If eState < 0 Then
         eState = m_eState
     End If
     Set oPatch = New cNinePatch
-    If oPatch.LoadFromBitmap(hBitmap) Then
+    Call GdipCloneImage(hBitmap, hNewBitmap)
+    If hNewBitmap = 0 Then
+        Set m_uButton(eState).ImagePatch = Nothing
+    ElseIf oPatch.LoadFromBitmap(hNewBitmap) Then
         Set m_uButton(eState).ImagePatch = oPatch
     Else
         Set m_uButton(eState).ImagePatch = Nothing
@@ -1464,8 +1468,10 @@ Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Singl
     End If
     UserControl.Refresh
     #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-        InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectNineButtonTimerProc
+        If m_sngBitmapAlpha < 1 Then
+            TerminateFireOnceTimer m_uTimer
+            InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectNineButtonTimerProc
+        End If
     #End If
     '--- success
     pvAnimateState = True
