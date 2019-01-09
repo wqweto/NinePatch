@@ -1000,7 +1000,7 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
 End Sub
 
 Private Sub UserControl_InitProperties()
-    ForeColor = vbWindowBackground
+    ForeColor = DEF_FORECOLOR
     Font = Ambient.Font
     Layout = DEF_LAYOUT1
 End Sub
@@ -1073,6 +1073,10 @@ Private Sub UserControl_Terminate()
     If m_hAwesomeSolid <> 0 Then
         Call GdipDeleteFont(m_hAwesomeSolid)
         m_hAwesomeSolid = 0
+    End If
+    If m_hAwesomeColSolid <> 0 Then
+        Call GdipDeletePrivateFontCollection(m_hAwesomeColSolid)
+        m_hAwesomeColSolid = 0
     End If
 End Sub
 
