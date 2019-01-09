@@ -335,9 +335,10 @@ Private Sub pvSizeLayout()
         dblLeft = 0
         For Each vElem In m_cButtonRows(lIdx)
             With btn(vElem(0))
-                .Left = AlignTwipsToPix(dblLeft * ScaleWidth / dblTotal)
+                .Move AlignTwipsToPix(dblLeft * ScaleWidth / dblTotal), AlignTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
                 dblLeft = dblLeft + vElem(1)
                 .Width = AlignTwipsToPix(dblLeft * ScaleWidth / dblTotal) - .Left
+                .Height = AlignTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1)) - .Top
             End With
         Next
     Next
@@ -509,7 +510,7 @@ Private Function pvPrepareForeground(hFore As Long) As Boolean
     
     On Error GoTo EH
     lWidth = ScaleWidth \ Screen.TwipsPerPixelX
-    lHeight = ScaleWidth \ Screen.TwipsPerPixelX
+    lHeight = ScaleHeight \ Screen.TwipsPerPixelX
     If hFore <> 0 Then
         Call GdipDisposeImage(hFore)
         hFore = 0
@@ -536,10 +537,10 @@ Private Function pvPrepareForeground(hFore As Long) As Boolean
     If GdipGetImageDimension(hBitmap, sngWidth, sngHeight) <> 0 Then
         GoTo QH
     End If
-    If Not pvPrepareAttribs(0.1, hAttributes) Then
+    If Not pvPrepareAttribs(0.15, hAttributes) Then
         GoTo QH
     End If
-    If GdipDrawImageRectRect(hGraphics, hBitmap, 0, 0, lWidth, lHeight, 0, 0, sngWidth, sngHeight, , hAttributes) <> 0 Then
+    If GdipDrawImageRectRect(hGraphics, hBitmap, lWidth * -0.25, lHeight * -0.25, lWidth * 1.5, lHeight * 1.5, 0, 0, sngWidth, sngHeight, , hAttributes) <> 0 Then
         GoTo QH
     End If
 QH:
@@ -601,8 +602,8 @@ End Function
 
 Private Sub pvPrepareFontAwesome()
     If Not m_oFont Is Nothing Then
-        GdipPreparePrivateFont App.Path & "\fa-regular-400.ttf", m_oFont.Size * 0.75, m_hAwesomeRegular, m_hAwesomeColRegular
-        GdipPreparePrivateFont App.Path & "\fa-solid-900.ttf", m_oFont.Size * 0.75, m_hAwesomeSolid, m_hAwesomeColSolid
+        GdipPreparePrivateFont App.Path & "\fa-regular-400.ttf", m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
+        GdipPreparePrivateFont App.Path & "\fa-solid-900.ttf", m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
     End If
 End Sub
 
@@ -949,6 +950,9 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
         Select Case Caption
         Case "^^"
             bShift = InStr(btn(Index).Tag, "|L") > 0
+            If (ButtonState And ucsBstPressed) <> 0 Then
+                bShift = Not bShift
+            End If
             If GdipDrawString(hGraphics, StrPtr(ChrW(FA_ARROW_ALT_CIRCLE_UP)), -1, IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular), uRect, hStringFormat, hBrush) <> 0 Then
                 GoTo QH
             End If
