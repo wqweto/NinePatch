@@ -52,7 +52,6 @@ Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Lo
 Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
 Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hDC As Long) As Long
 Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
-'Private Declare Function ApiGetObject Lib "gdi32" Alias "GetObjectA" (ByVal hObject As Long, ByVal nCount As Long, lpObject As Any) As Long
 '--- gdi+
 Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
@@ -66,14 +65,12 @@ Private Declare Function GdipNewPrivateFontCollection Lib "gdiplus" (hFontCollec
 Private Declare Function GdipPrivateAddFontFile Lib "gdiplus" (ByVal hFontCollection As Long, ByVal lpFileName As Long) As Long
 Private Declare Function GdipCreateFont Lib "gdiplus" (ByVal hFontFamily As Long, ByVal emSize As Single, ByVal lStyle As Long, ByVal lUnit As Long, hFont As Long) As Long
 Private Declare Function GdipGetFontCollectionFamilyList Lib "gdiplus" (ByVal hFontCollection As Long, ByVal lNumSought As Long, aFamilies As Any, lNumFound As Long) As Long
-'Private Declare Function GdipCreateFontFromLogfontA Lib "gdiplus" (ByVal hDC As Long, uLogFont As LOGFONT, hCreatedFont As Long) As Long
 '--- public
 Public Declare Function GdipDeleteStringFormat Lib "gdiplus" (ByVal hStringFormat As Long) As Long
 Public Declare Function GdipDeleteFont Lib "gdiplus" (ByVal hFont As Long) As Long
 Public Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
 Public Declare Function GdipDeletePrivateFontCollection Lib "gdiplus" (hFontCollection As Long) As Long
 #If Not ImplUseShared Then
-'    Private Declare Function VirtualProtect Lib "kernel32" (lpAddress As Any, ByVal dwSize As Long, ByVal flNewProtect As Long, lpflOldProtect As Long) As Long
     Private Declare Function SetTimer Lib "user32" (ByVal hWnd As Long, ByVal nIDEvent As Long, ByVal uElapse As Long, ByVal lpTimerFunc As Long) As Long
     Private Declare Function KillTimer Lib "user32" (ByVal hWnd As Long, ByVal nIDEvent As Long) As Long
 #End If
@@ -99,23 +96,6 @@ Private Type UcsRgbQuad
     B                   As Byte
     A                   As Byte
 End Type
-
-'Private Type LOGFONT
-'    lfHeight            As Long
-'    lfWidth             As Long
-'    lfEscapement        As Long
-'    lfOrientation       As Long
-'    lfWeight            As Long
-'    lfItalic            As Byte
-'    lfUnderline         As Byte
-'    lfStrikeOut         As Byte
-'    lfCharSet           As Byte
-'    lfOutPrecision      As Byte
-'    lfClipPrecision     As Byte
-'    lfQuality           As Byte
-'    lfPitchAndFamily    As Byte
-'    lfFaceName(1 To 32) As Byte ' LF_FACESIZE = 32
-'End Type
 
 #If Not ImplUseShared Then
     Private Type ThunkBytes
@@ -352,49 +332,6 @@ QH:
         hNewFontCol = 0
     End If
 End Function
-
-'Public Function GdipPrepareFont(oFont As StdFont, hFont As Long, Optional ByVal FontWeight As Long) As Boolean
-'    Const FUNC_NAME     As String = "GdipPrepareFont"
-'    Dim pFont           As IFont
-'    Dim hDC             As Long
-'    Dim uLogFont        As LOGFONT
-'    Dim hNewFont        As Long
-'
-'    On Error GoTo EH
-'    Set pFont = oFont
-'    If pFont Is Nothing Then
-'        GoTo QH
-'    End If
-'    hDC = GetDC(0)
-'    Call ApiGetObject(pFont.hFont, Len(uLogFont), uLogFont)
-'    If FontWeight <> 0 Then
-'        uLogFont.lfWeight = FontWeight
-'    End If
-'    If GdipCreateFontFromLogfontA(hDC, uLogFont, hNewFont) <> 0 Then
-'        GoTo QH
-'    End If
-'    '--- commit
-'    If hFont <> 0 Then
-'        Call GdipDeleteFont(hFont)
-'    End If
-'    hFont = hNewFont
-'    hNewFont = 0
-'    '--- success
-'    GdipPrepareFont = True
-'QH:
-'    If hNewFont <> 0 Then
-'        Call GdipDeleteFont(hNewFont)
-'        hNewFont = 0
-'    End If
-'    If hDC <> 0 Then
-'        Call ReleaseDC(0, hDC)
-'        hDC = 0
-'    End If
-'    Exit Function
-'EH:
-'    PrintError FUNC_NAME
-'    Resume QH
-'End Function
 
 Public Function GdipPrepareFont(oFont As StdFont, hFont As Long) As Boolean
     Const FUNC_NAME     As String = "GdipPrepareFont"

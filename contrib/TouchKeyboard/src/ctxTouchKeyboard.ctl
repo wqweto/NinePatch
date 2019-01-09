@@ -79,7 +79,6 @@ Private Const DashStyleSolid                As Long = 0
 Private Const SmoothingModeAntiAlias        As Long = 4
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
-'Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
 Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 '--- gdi+
@@ -895,16 +894,6 @@ Private Function At(Data As Variant, ByVal Index As Long, Optional Default As St
     End If
 RH:
 End Function
-
-'Private Function C_Dbl(Value As Variant) As Double
-'    Dim vDest           As Variant
-'
-'    If VarType(Value) = vbDouble Then
-'        C_Dbl = Value
-'    ElseIf VariantChangeType(vDest, Value, 0, vbDouble) = 0 Then
-'        C_Dbl = vDest
-'    End If
-'End Function
 
 Public Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
     AlignTwipsToPix = Int(dblTwips / Screen.TwipsPerPixelX + 0.5) * Screen.TwipsPerPixelX
