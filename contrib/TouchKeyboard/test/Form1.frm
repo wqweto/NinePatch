@@ -2,7 +2,7 @@ VERSION 5.00
 Begin VB.Form Form1 
    BackColor       =   &H00000000&
    Caption         =   "Form3"
-   ClientHeight    =   8100
+   ClientHeight    =   10704
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   10752
@@ -16,7 +16,7 @@ Begin VB.Form Form1
       Strikethrough   =   0   'False
    EndProperty
    LinkTopic       =   "Form3"
-   ScaleHeight     =   8100
+   ScaleHeight     =   10704
    ScaleWidth      =   10752
    StartUpPosition =   3  'Windows Default
    Begin VB.TextBox Text1 
@@ -34,6 +34,16 @@ Begin VB.Form Form1
       TabIndex        =   0
       Top             =   756
       Width           =   5724
+   End
+   Begin Project1.ctxTouchKeyboard ctxTouchKeyboard2 
+      Height          =   3708
+      Left            =   1176
+      Top             =   5964
+      Width           =   3120
+      _extentx        =   5503
+      _extenty        =   6541
+      font            =   "Form1.frx":0000
+      layout          =   "1 2 3 4|||N 5 6 7|||N 8 9 ||S|N 0 Done||B"
    End
    Begin VB.Label Label1 
       AutoSize        =   -1  'True
@@ -58,21 +68,13 @@ Begin VB.Form Form1
       WordWrap        =   -1  'True
    End
    Begin Project1.ctxTouchKeyboard ctxTouchKeyboard1 
-      Height          =   3456
+      Height          =   3288
       Left            =   0
       Top             =   2016
       Width           =   9924
-      _ExtentX        =   17505
-      _ExtentY        =   6096
-      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "PT Sans Narrow"
-         Size            =   13.8
-         Charset         =   204
-         Weight          =   400
-         Underline       =   0   'False
-         Italic          =   0   'False
-         Strikethrough   =   0   'False
-      EndProperty
+      _extentx        =   17505
+      _extenty        =   5800
+      font            =   "Form1.frx":0030
    End
 End
 Attribute VB_Name = "Form1"
@@ -126,12 +128,22 @@ Public Sub RegisterCancelMode(oCtl As Object)
     Set m_oCtlCancelMode = oCtl
 End Sub
 
+Public Sub SendKeys(sText As String, Optional ByVal bWait As Boolean)
+   With CreateObject("WScript.Shell")
+        .SendKeys sText, bWait
+   End With
+End Sub
+
 Private Sub ctxTouchKeyboard1_ButtonClick(ByVal Index As Long)
     Dim sText           As String
     
     Select Case ctxTouchKeyboard1.ButtonCaption(Index)
-    Case "EN", "BG"
-        m_bIsIntl = (ctxTouchKeyboard1.ButtonCaption(Index) <> "EN")
+    Case "EN", "BG", "keyb"
+        If ctxTouchKeyboard1.ButtonCaption(Index) = "keyb" Then
+            m_bIsIntl = Not m_bIsIntl
+        Else
+            m_bIsIntl = (ctxTouchKeyboard1.ButtonCaption(Index) <> "EN")
+        End If
         ctxTouchKeyboard1.Layout = IIf(m_bIsIntl, STR_BG_LAYOUT1, STR_EN_LAYOUT1)
         m_sNextLayout = vbNullString
     Case "^^"
@@ -178,10 +190,18 @@ Private Sub ctxTouchKeyboard1_ButtonClick(ByVal Index As Long)
     End If
 End Sub
 
-Public Sub SendKeys(sText As String, Optional ByVal bWait As Boolean)
-   With CreateObject("WScript.Shell")
-        .SendKeys sText, bWait
-   End With
+Private Sub ctxTouchKeyboard2_ButtonClick(ByVal Index As Long)
+    Dim sText           As String
+    
+    Select Case ctxTouchKeyboard2.ButtonCaption(Index)
+    Case "(", ")", "[", "]", "{", "}", "+", "^", "%", "~"
+        sText = "{" & ctxTouchKeyboard2.ButtonCaption(Index) & "}"
+    Case Else
+        If Len(ctxTouchKeyboard2.ButtonCaption(Index)) = 1 Then
+            sText = ctxTouchKeyboard2.ButtonCaption(Index)
+        End If
+    End Select
+    SendKeys sText
 End Sub
 
 Private Sub Form_Load()
