@@ -36,14 +36,22 @@ Begin VB.Form Form1
       Width           =   5724
    End
    Begin Project1.ctxTouchKeyboard ctxTouchKeyboard2 
-      Height          =   3708
+      Height          =   4044
       Left            =   1176
       Top             =   5964
       Width           =   3120
-      _extentx        =   5503
-      _extenty        =   6541
-      font            =   "Form1.frx":0000
-      layout          =   "1 2 3 4|||N 5 6 7|||N 8 9 ||S|N 0 Done||B"
+      _ExtentX        =   5503
+      _ExtentY        =   7133
+      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
+         Name            =   "PT Sans Narrow"
+         Size            =   13.8
+         Charset         =   204
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      Layout          =   "1 2 3 4|||N 5 6 7|||N 8 9 .|||N 0 <=||D Cancel||D|N Done||B"
    End
    Begin VB.Label Label1 
       AutoSize        =   -1  'True
@@ -72,9 +80,17 @@ Begin VB.Form Form1
       Left            =   0
       Top             =   2016
       Width           =   9924
-      _extentx        =   17505
-      _extenty        =   5800
-      font            =   "Form1.frx":0030
+      _ExtentX        =   17505
+      _ExtentY        =   5800
+      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
+         Name            =   "PT Sans Narrow"
+         Size            =   13.8
+         Charset         =   204
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
    End
 End
 Attribute VB_Name = "Form1"
@@ -194,6 +210,8 @@ Private Sub ctxTouchKeyboard2_ButtonClick(ByVal Index As Long)
     Dim sText           As String
     
     Select Case ctxTouchKeyboard2.ButtonCaption(Index)
+    Case "<="
+        sText = "{BKSP}"
     Case "(", ")", "[", "]", "{", "}", "+", "^", "%", "~"
         sText = "{" & ctxTouchKeyboard2.ButtonCaption(Index) & "}"
     Case Else
