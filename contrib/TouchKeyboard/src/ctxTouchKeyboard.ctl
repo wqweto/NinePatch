@@ -79,8 +79,9 @@ Private Const DashStyleSolid                As Long = 0
 Private Const SmoothingModeAntiAlias        As Long = 4
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
-Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
+'Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
+Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
@@ -92,7 +93,6 @@ Private Declare Function GdipBitmapSetPixel Lib "gdiplus" (ByVal hBitmap As Long
 Private Declare Function GdipFillRectangleI Lib "gdiplus" (ByVal hGraphics As Long, ByVal hBrush As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long) As Long
 Private Declare Function GdipGraphicsClear Lib "gdiplus" (ByVal hGraphics As Long, ByVal lColor As Long) As Long
 Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal lArgb As Long, hBrush As Long) As Long
-Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
 Private Declare Function GdipSetCompositingMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal lCompositingMode As Long) As Long
 Private Declare Function GdipCreateBitmapFromHBITMAP Lib "gdiplus" (ByVal hBmp As Long, ByVal hPal As Long, hBtmap As Long) As Long
 Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Long, ByRef nWidth As Single, ByRef nHeight As Single) As Long '
@@ -111,6 +111,14 @@ Private Declare Function GdipDeletePen Lib "gdiplus" (ByVal hPen As Long) As Lon
 Private Declare Function GdipDeletePath Lib "gdiplus" (ByVal hPath As Long) As Long
 Private Declare Function GdipBeginContainer2 Lib "gdiplus" (ByVal hGraphics As Long, hState As Long) As Long
 Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long, ByVal hState As Long) As Long
+Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, ByVal lStrPtr As Long, ByVal lLength As Long, ByVal hFont As Long, uRect As RECTF, ByVal hStringFormat As Long, ByVal hBrush As Long) As Long
+
+Private Type RECTF
+   Left                 As Single
+   Top                  As Single
+   Right                As Single
+   Bottom               As Single
+End Type
 
 '=========================================================================
 ' Constants and member variables
@@ -118,19 +126,24 @@ Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long
 
 Private Const DEF_LAYOUT1           As String = "q w e r t y u i o p <=|1.25|D " & _
                                                 "|0.5|S|N a s d f g h j k l Done|1.85|B " & _
-                                                "^|||N z x c v b n m ! ? ^|1.25| " & _
+                                                "^^|||N z x c v b n m ! ? ^^|1.25| " & _
                                                 "?!123|3|D|N _|6 ?!123|1.25|D keyb||D"
-Private Const DEF_LAYOUT2           As String = "Q W E R T Y U I O P <=|1.25|D " & _
-                                                "|0.5|S|N A S D F G H J K L Done|1.85|B " & _
-                                                "^||L|N Z X C V B N M ! ? ^|1.25|L " & _
-                                                "?!123|3|D|N _|6 ?!123|1.25|D keyb||D"
+Private Const DEF_FORECOLOR         As Long = vbWindowBackground
 
+Private m_clrFore               As OLE_COLOR
+Private WithEvents m_oFont      As StdFont
+Attribute m_oFont.VB_VarHelpID = -1
 Private m_sLayout               As String
 Private m_lButtonCurrent        As Long
 Private m_cButtonRows()         As Collection
 Private m_oCtlCancelMode        As Object
 Private m_hForeBitmap           As Long
 Private m_cButtonImageCache     As Collection
+Private m_bShown                As Boolean
+Private m_hAwesomeRegular       As Long
+Private m_hAwesomeColRegular    As Long
+Private m_hAwesomeSolid         As Long
+Private m_hAwesomeColSolid      As Long
 
 Private Type UcsRgbQuad
     R                   As Byte
@@ -162,15 +175,48 @@ End Function
 ' Properties
 '=========================================================================
 
+Property Get ForeColor() As OLE_COLOR
+    ForeColor = m_clrFore
+End Property
+
+Property Let ForeColor(ByVal clrValue As OLE_COLOR)
+    If m_clrFore <> clrValue Then
+        m_clrFore = clrValue
+        pvLoadLayout m_sLayout
+        pvSizeLayout
+        PropertyChanged
+    End If
+End Property
+
+Property Get Font() As StdFont
+    Set Font = m_oFont
+End Property
+
+Property Set Font(oValue As StdFont)
+    If Not m_oFont Is oValue Then
+        Set m_oFont = oValue
+        pvLoadLayout m_sLayout
+        pvSizeLayout
+        pvPrepareFontAwesome
+        PropertyChanged
+    End If
+End Property
+
 Property Get Layout() As String
     Layout = m_sLayout
 End Property
 
 Property Let Layout(sValue As String)
-    m_sLayout = sValue
-    pvLoadLayout sValue
-    pvSizeLayout
+    If m_sLayout <> sValue Then
+        m_sLayout = sValue
+        pvLoadLayout sValue
+        pvSizeLayout
+        Repaint
+        PropertyChanged
+    End If
 End Property
+
+'= run-time ==============================================================
 
 Property Get ButtonCaption(ByVal Index As Long) As String
     ButtonCaption = btn(Index).Caption
@@ -199,6 +245,13 @@ Public Sub CancelMode()
     End If
 End Sub
 
+Public Sub Repaint()
+    If m_bShown Then
+        UserControl.Refresh
+        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
+    End If
+End Sub
+
 '= private ===============================================================
 
 Private Sub pvLoadLayout(sLayout As String)
@@ -219,7 +272,11 @@ Private Sub pvLoadLayout(sLayout As String)
     ReDim m_cButtonRows(0 To 0) As Collection
     Set m_cButtonRows(0) = New Collection
     For Each vElem In Split(sLayout)
-        vSplit = Split(Replace(vElem, "_", " "), "|")
+        If vElem = "|" Then
+            vSplit = Array(vElem)
+        Else
+            vSplit = Split(vElem, "|")
+        End If
         Select Case At(vSplit, 2)
         Case "D"
             lIdx = pvLoadButton(CLR_DARK)
@@ -252,7 +309,7 @@ Private Sub pvLoadLayout(sLayout As String)
                 .Tag = vElem
                 .Visible = True
                 If LenB(At(vSplit, 1)) <> 0 Then
-                    .Width = C_Dbl(At(vSplit, 1)) * .Width
+                    .Width = Val(At(vSplit, 1)) * .Width
                 End If
                 m_cButtonRows(lRow).Add Array(lIdx, .Width)
             End With
@@ -328,6 +385,8 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
     pvLoadButton = m_lButtonCurrent
     With btn(pvLoadButton)
         .ZOrder vbBringToFront
+        .ForeColor = m_clrFore
+        Set .Font = m_oFont
         .ButtonImageBitmap(ucsBstNormal) = hNormalBitmap
         .ButtonImageBitmap(ucsBstHover) = hHoverBitmap
         .ButtonImageBitmap(ucsBstPressed) = hPressedBitmap
@@ -375,7 +434,7 @@ Private Function pvPrepareButtonBitmap( _
             lRoundWidth, lRoundWidth, sngRadius, clrShadow, clrBack:=clrShadow) Then
         GoTo QH
     End If
-    If Not BlurBitmap(hDropShadow, sngBlur) Then
+    If Not GdipBlurBitmap(hDropShadow, sngBlur) Then
         GoTo QH
     End If
     If hGraphics <> 0 Then
@@ -540,6 +599,13 @@ EH:
     PrintError FUNC_NAME
     Resume QH
 End Function
+
+Private Sub pvPrepareFontAwesome()
+    If Not m_oFont Is Nothing Then
+        GdipPreparePrivateFont App.Path & "\fa-regular-400.ttf", m_oFont.Size * 0.75, m_hAwesomeRegular, m_hAwesomeColRegular
+        GdipPreparePrivateFont App.Path & "\fa-solid-900.ttf", m_oFont.Size * 0.75, m_hAwesomeSolid, m_hAwesomeColSolid
+    End If
+End Sub
 
 Private Function pvDrawRoundedRectangle( _
             ByVal hGraphics As Long, _
@@ -780,7 +846,6 @@ Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
         End If
     End If
     pvRGBToHSB.A = rgbColor.A
-'    Debug.Assert pvHSBToRGB(pvRGBToHSB) = clrValue
 End Function
 
 Private Function Ceil(ByVal Value As Double) As Double
@@ -831,15 +896,15 @@ Private Function At(Data As Variant, ByVal Index As Long, Optional Default As St
 RH:
 End Function
 
-Private Function C_Dbl(Value As Variant) As Double
-    Dim vDest           As Variant
-    
-    If VarType(Value) = vbDouble Then
-        C_Dbl = Value
-    ElseIf VariantChangeType(vDest, Value, 0, vbDouble) = 0 Then
-        C_Dbl = vDest
-    End If
-End Function
+'Private Function C_Dbl(Value As Variant) As Double
+'    Dim vDest           As Variant
+'
+'    If VarType(Value) = vbDouble Then
+'        C_Dbl = Value
+'    ElseIf VariantChangeType(vDest, Value, 0, vbDouble) = 0 Then
+'        C_Dbl = vDest
+'    End If
+'End Function
 
 Public Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
     AlignTwipsToPix = Int(dblTwips / Screen.TwipsPerPixelX + 0.5) * Screen.TwipsPerPixelX
@@ -855,20 +920,23 @@ Private Sub btn_Click(Index As Integer)
     RaiseEvent ButtonClick(Index)
 End Sub
 
-'Private Sub btn_DblClick(Index As Integer)
-'    RaiseEvent Click(Index)
-'End Sub
-
 Private Sub btn_MouseDown(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
     RaiseEvent ButtonMouseDown(Index)
 End Sub
 
 Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsTouchButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
     Const FUNC_NAME     As String = "btn_OwnerDraw"
+    Const FA_ARROW_ALT_CIRCLE_UP As Long = &HF35B&
+    Const FA_BACKSPACE  As Long = &HF55A&
+    Const FA_KEYBOARD   As Long = &HF11C&
     Dim lLeft           As Long
     Dim lTop            As Long
     Dim lWidth          As Long
     Dim lHeight         As Long
+    Dim hStringFormat   As Long
+    Dim hBrush          As Long
+    Dim uRect           As RECTF
+    Dim bShift          As Boolean
     
     On Error GoTo EH
     If m_hForeBitmap = 0 Then
@@ -880,13 +948,54 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
         lWidth = .Width \ Screen.TwipsPerPixelX
         lHeight = .Height \ Screen.TwipsPerPixelX
     End With
+    If m_hAwesomeRegular <> 0 And m_hAwesomeSolid <> 0 Then
+        If Not GdipPrepareStringFormat(ucsBflCenter, hStringFormat) Then
+            GoTo QH
+        End If
+        If GdipCreateSolidFill(GdipTranslateColor(m_clrFore), hBrush) <> 0 Then
+            GoTo QH
+        End If
+        uRect.Right = lWidth
+        uRect.Bottom = lHeight
+        Select Case Caption
+        Case "^^"
+            bShift = InStr(btn(Index).Tag, "|L") > 0
+            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_ARROW_ALT_CIRCLE_UP)), -1, IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular), uRect, hStringFormat, hBrush) <> 0 Then
+                GoTo QH
+            End If
+            Caption = vbNullString
+        Case "<="
+            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_BACKSPACE)), -1, m_hAwesomeSolid, uRect, hStringFormat, hBrush) <> 0 Then
+                GoTo QH
+            End If
+            Caption = vbNullString
+        Case "keyb"
+            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_KEYBOARD)), -1, m_hAwesomeRegular, uRect, hStringFormat, hBrush) <> 0 Then
+                GoTo QH
+            End If
+            Caption = vbNullString
+        End Select
+    End If
     If GdipDrawImageRectRect(hGraphics, m_hForeBitmap, 0, 0, lWidth, lHeight, lLeft, lTop, lWidth, lHeight) <> 0 Then
         GoTo QH
     End If
 QH:
+    If hStringFormat <> 0 Then
+        Call GdipDeleteStringFormat(hStringFormat)
+    End If
+    If hBrush <> 0 Then
+        Call GdipDeleteBrush(hBrush)
+    End If
     Exit Sub
 EH:
     PrintError FUNC_NAME
+End Sub
+
+Private Sub m_oFont_FontChanged(ByVal PropertyName As String)
+    pvLoadLayout m_sLayout
+    pvSizeLayout
+    pvPrepareFontAwesome
+    PropertyChanged
 End Sub
 
 '=========================================================================
@@ -902,16 +1011,37 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
 End Sub
 
 Private Sub UserControl_InitProperties()
-    pvPrepareForeground m_hForeBitmap
+    ForeColor = vbWindowBackground
+    Font = Ambient.Font
     Layout = DEF_LAYOUT1
 End Sub
 
 Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
-    If IsCompileTime(Extender) Then
-        Exit Sub
+    If Ambient.UserMode Then
+        If IsCompileTime(Extender) Then
+            Exit Sub
+        End If
     End If
+    With PropBag
+        m_clrFore = .ReadProperty("ForeColor", DEF_FORECOLOR)
+        Set m_oFont = .ReadProperty("Font", Ambient.Font)
+        pvPrepareFontAwesome
+        Layout = .ReadProperty("Layout", DEF_LAYOUT1)
+    End With
+End Sub
+
+Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
+    With PropBag
+        Call .WriteProperty("ForeColor", ForeColor, DEF_FORECOLOR)
+        Call .WriteProperty("Font", Font, Ambient.Font)
+        Call .WriteProperty("Layout", Layout, DEF_LAYOUT1)
+    End With
+End Sub
+
+Private Sub UserControl_Resize()
     pvPrepareForeground m_hForeBitmap
-    Layout = DEF_LAYOUT1
+    pvSizeLayout
+    Repaint
 End Sub
 
 Private Sub UserControl_Initialize()
@@ -926,9 +1056,15 @@ Private Sub UserControl_Initialize()
     Set m_cButtonRows(0) = New Collection
 End Sub
 
-Private Sub UserControl_Resize()
-    pvPrepareForeground m_hForeBitmap
-    pvSizeLayout
+Private Sub UserControl_Show()
+    If Not m_bShown Then
+        m_bShown = True
+        Repaint
+    End If
+End Sub
+
+Private Sub UserControl_Hide()
+    m_bShown = False
 End Sub
 
 Private Sub UserControl_Terminate()
@@ -937,5 +1073,17 @@ Private Sub UserControl_Terminate()
     For Each vElem In m_cButtonImageCache
         Call GdipDisposeImage(vElem)
     Next
+    If m_hAwesomeRegular <> 0 Then
+        Call GdipDeleteFont(m_hAwesomeRegular)
+        m_hAwesomeRegular = 0
+    End If
+    If m_hAwesomeColRegular <> 0 Then
+        Call GdipDeletePrivateFontCollection(m_hAwesomeColRegular)
+        m_hAwesomeColRegular = 0
+    End If
+    If m_hAwesomeSolid <> 0 Then
+        Call GdipDeleteFont(m_hAwesomeSolid)
+        m_hAwesomeSolid = 0
+    End If
 End Sub
 

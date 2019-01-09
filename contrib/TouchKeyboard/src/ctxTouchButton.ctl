@@ -63,25 +63,6 @@ Public Enum UcsTouchButtonStateEnum
 End Enum
 Private Const ucsBstLast = ucsBstFocused
 
-Public Enum UcsTouchButtonTextFlagsEnum
-    ucsBflHorLeft = 0
-    ucsBflHorCenter = 1
-    ucsBflHorRight = 2
-    ucsBflVertTop = 0
-    ucsBflVertCenter = 4
-    ucsBflVertBottom = 8
-    ucsBflCenter = ucsBflHorCenter Or ucsBflVertCenter
-    ucsBflDirectionRightToLeft = &H1 * 16
-    ucsBflDirectionVertical = &H2 * 16
-    ucsBflNoFitBlackBox = &H4 * 16
-    ucsBflDisplayFormatControl = &H20 * 16
-    ucsBflNoFontFallback = &H400 * 16
-    ucsBflMeasureTrailingSpaces = &H800& * 16
-    ucsBflNoWrap = &H1000& * 16
-    ucsBflLineLimit = &H2000& * 16
-    ucsBflNoClip = &H4000& * 16
-End Enum
-
 Public Enum UcsTouchButtonStyleEnum
     ucsBtyNone
 End Enum
@@ -95,7 +76,6 @@ Private Const PixelFormat32bppARGB          As Long = &H26200A
 Private Const PixelFormat32bppPARGB         As Long = &HE200B
 '--- for GdipDrawImageXxx
 Private Const UnitPixel                     As Long = 2
-Private Const UnitPoint                     As Long = 3
 '--- for GdipSetTextRenderingHint
 Private Const TextRenderingHintAntiAlias    As Long = 4
 Private Const TextRenderingHintClearTypeGridFit As Long = 5
@@ -130,19 +110,9 @@ Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal 
 Private Declare Function GdipSetImageAttributesColorKeys Lib "gdiplus" (ByVal hImgAttr As Long, ByVal lAdjustType As Long, ByVal fAdjustEnabled As Long, ByVal clrLow As Long, ByVal clrHigh As Long) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal hImgAttr As Long) As Long
 Private Declare Function GdipBitmapGetPixel Lib "gdiplus" (ByVal hBitmap As Long, ByVal lX As Long, ByVal lY As Long, clrCurrent As Any) As Long
-Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal lNamePtr As Long, ByVal hFontCollection As Long, hFontFamily As Long) As Long
-Private Declare Function GdipGetGenericFontFamilySansSerif Lib "gdiplus" (hFontFamily As Long) As Long
-Private Declare Function GdipDeleteFontFamily Lib "gdiplus" (ByVal hFontFamily As Long) As Long
-Private Declare Function GdipCreateFont Lib "gdiplus" (ByVal hFontFamily As Long, ByVal emSize As Single, ByVal lStyle As Long, ByVal lUnit As Long, hFont As Long) As Long
-Private Declare Function GdipDeleteFont Lib "gdiplus" (ByVal hFont As Long) As Long
 Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal argb As Long, hBrush As Long) As Long
 Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
 Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, ByVal lStrPtr As Long, ByVal lLength As Long, ByVal hFont As Long, uRect As RECTF, ByVal hStringFormat As Long, ByVal hBrush As Long) As Long
-Private Declare Function GdipCreateStringFormat Lib "gdiplus" (ByVal hFormatAttributes As Long, ByVal nLanguage As Integer, hStringFormat As Long) As Long
-Private Declare Function GdipDeleteStringFormat Lib "gdiplus" (ByVal hStringFormat As Long) As Long
-Private Declare Function GdipSetStringFormatFlags Lib "gdiplus" (ByVal hStringFormat As Long, ByVal lFlags As Long) As Long
-Private Declare Function GdipSetStringFormatAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
-Private Declare Function GdipSetStringFormatLineAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
 Private Declare Function GdipSetTextRenderingHint Lib "gdiplus" (ByVal hGraphics As Long, ByVal lMode As Long) As Long
 Private Declare Function GdipCloneBitmapAreaI Lib "gdiplus" (ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long, ByVal lPixelFormat As Long, ByVal srcBitmap As Long, dstBitmap As Long) As Long
 Private Declare Function GdipCreateBitmapFromHBITMAP Lib "gdiplus" (ByVal hBmp As Long, ByVal hPal As Long, hBtmap As Long) As Long
@@ -161,21 +131,6 @@ Private Type RECTF
    Right                As Single
    Bottom               As Single
 End Type
-
-Private Enum FontStyle
-   FontStyleRegular = 0
-   FontStyleBold = 1
-   FontStyleItalic = 2
-   FontStyleBoldItalic = 3
-   FontStyleUnderline = 4
-   FontStyleStrikeout = 8
-End Enum
-
-Private Enum StringAlignment
-   StringAlignmentNear = 0
-   StringAlignmentCenter = 1
-   StringAlignmentFar = 2
-End Enum
 
 Private Type BITMAPINFOHEADER
     biSize              As Long
@@ -382,7 +337,7 @@ End Property
 Property Set Font(oValue As StdFont)
     If Not m_oFont Is oValue Then
         Set m_oFont = oValue
-        pvPrepareFont m_oFont, m_hFont
+        GdipPrepareFont m_oFont, m_hFont
         Repaint
         PropertyChanged
     End If
@@ -740,7 +695,7 @@ Public Sub Repaint()
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
         UserControl.Refresh
-        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
+'        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
     Exit Sub
 EH:
@@ -821,7 +776,7 @@ Private Function pvPrepareBitmap(ByVal eState As UcsTouchButtonStateEnum, hFocus
     End If
     With m_uButton(pvGetEffectiveState(eState))
         If Not .TextFont Is Nothing Then
-            If Not pvPrepareFont(.TextFont, hFont) Then
+            If Not GdipPrepareFont(.TextFont, hFont) Then
                 GoTo QH
             End If
         Else
@@ -859,7 +814,7 @@ Private Function pvPrepareBitmap(ByVal eState As UcsTouchButtonStateEnum, hFocus
                 If GdipCreateSolidFill(pvTranslateColor(IIf(.TextColor = DEF_TEXTCOLOR, m_clrFore, .TextColor), .TextOpacity), hBrush) <> 0 Then
                     GoTo QH
                 End If
-                If Not pvPrepareStringFormat(.TextFlags, hStringFormat) Then
+                If Not GdipPrepareStringFormat(.TextFlags, hStringFormat) Then
                     GoTo QH
                 End If
                 lOffset = .TextOffsetX * -((eState And ucsBstHoverPressed) = ucsBstHoverPressed)
@@ -980,88 +935,6 @@ QH:
 EH:
     PrintError FUNC_NAME
     Resume QH
-End Function
-
-Private Function pvPrepareFont(oFont As StdFont, hFont As Long) As Boolean
-    Const FUNC_NAME     As String = "pvPrepareFont"
-    Dim hFamily         As Long
-    Dim hNewFont        As Long
-    Dim eStyle          As FontStyle
-
-    On Error GoTo EH
-    If oFont Is Nothing Then
-        GoTo QH
-    End If
-    If GdipCreateFontFamilyFromName(StrPtr(oFont.Name), 0, hFamily) <> 0 Then
-        If GdipGetGenericFontFamilySansSerif(hFamily) <> 0 Then
-            GoTo QH
-        End If
-    End If
-    eStyle = FontStyleBold * -oFont.Bold _
-        Or FontStyleItalic * -oFont.Italic _
-        Or FontStyleUnderline * -oFont.Underline _
-        Or FontStyleStrikeout * -oFont.Strikethrough
-    If GdipCreateFont(hFamily, oFont.Size, eStyle, UnitPoint, hNewFont) <> 0 Then
-        GoTo QH
-    End If
-    '--- commit
-    If hFont <> 0 Then
-        Call GdipDeleteFont(hFont)
-    End If
-    hFont = hNewFont
-    hNewFont = 0
-    '--- success
-    pvPrepareFont = True
-QH:
-    On Error Resume Next
-    If hFamily <> 0 Then
-        Call GdipDeleteFontFamily(hFamily)
-        hFamily = 0
-    End If
-    If hNewFont <> 0 Then
-        Call GdipDeleteFont(hNewFont)
-        hNewFont = 0
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume QH
-End Function
-
-Private Function pvPrepareStringFormat(ByVal lFlags As UcsTouchButtonTextFlagsEnum, hStringFormat As Long) As Boolean
-    Const FUNC_NAME     As String = "pvPrepareStringFormat"
-    Dim hNewFormat      As Long
-    
-    On Error GoTo EH
-    If GdipCreateStringFormat(0, 0, hNewFormat) <> 0 Then
-        GoTo QH
-    End If
-    If GdipSetStringFormatAlign(hNewFormat, lFlags And 3) <> 0 Then
-        GoTo QH
-    End If
-    If GdipSetStringFormatLineAlign(hNewFormat, (lFlags \ 4) And 3) <> 0 Then
-        GoTo QH
-    End If
-    If GdipSetStringFormatFlags(hNewFormat, lFlags \ 16) <> 0 Then
-        GoTo QH
-    End If
-    '--- commit
-    If hStringFormat <> 0 Then
-        Call GdipDeleteStringFormat(hStringFormat)
-    End If
-    hStringFormat = hNewFormat
-    hNewFormat = 0
-    '--- success
-    pvPrepareStringFormat = True
-QH:
-    If hNewFormat <> 0 Then
-        Call GdipDeleteStringFormat(hNewFormat)
-        hNewFormat = 0
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume Next
 End Function
 
 Private Function pvPreparePicture(oPicture As StdPicture, ByVal clrMask As OLE_COLOR, hPictureBitmap As Long, hPictureAttributes As Long) As Boolean
@@ -1484,7 +1357,7 @@ End Function
 '=========================================================================
 
 Private Sub m_oFont_FontChanged(ByVal PropertyName As String)
-    pvPrepareFont m_oFont, m_hFont
+    GdipPrepareFont m_oFont, m_hFont
     Repaint
     PropertyChanged
 End Sub
@@ -1734,12 +1607,21 @@ EH:
     Resume Next
 End Sub
 
-'Private Sub UserControl_Show()
-'    m_bShown = True
-'End Sub
+Private Sub UserControl_Show()
+    If Not m_bShown Then
+        m_bShown = True
+        Repaint
+    End If
+End Sub
 
 Private Sub UserControl_Hide()
     m_bShown = False
+    If m_hPrevBitmap <> 0 Then
+        Call GdipDisposeImage(m_hPrevBitmap)
+        m_hPrevBitmap = 0
+    End If
+    pvState(ucsBstHoverPressed) = False
+    TerminateFireOnceTimer m_uTimer
 End Sub
 
 Private Sub UserControl_Initialize()

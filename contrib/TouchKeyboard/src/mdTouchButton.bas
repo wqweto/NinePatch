@@ -1,17 +1,32 @@
 Attribute VB_Name = "mdTouchKeyboard"
-'=========================================================================
-'
-' Nine Patch PNGs for VB6 (c) 2018 by wqweto@gmail.com
-' FireOnceTimer/PushParamThunk (c) M. Curland
-'
-' mdNineButton.bas -- fire-once timers and redirectors
-'
-'=========================================================================
 Option Explicit
 DefObj A-Z
 Private Const STR_MODULE_NAME As String = "mdTouchKeyboard"
 
 #Const ImplUseShared = NPPNG_USE_SHARED <> 0
+
+'=========================================================================
+' Public enums
+'=========================================================================
+
+Public Enum UcsTouchButtonTextFlagsEnum
+    ucsBflHorLeft = 0
+    ucsBflHorCenter = 1
+    ucsBflHorRight = 2
+    ucsBflVertTop = 0
+    ucsBflVertCenter = 4
+    ucsBflVertBottom = 8
+    ucsBflCenter = ucsBflHorCenter Or ucsBflVertCenter
+    ucsBflDirectionRightToLeft = &H1 * 16
+    ucsBflDirectionVertical = &H2 * 16
+    ucsBflNoFitBlackBox = &H4 * 16
+    ucsBflDisplayFormatControl = &H20 * 16
+    ucsBflNoFontFallback = &H400 * 16
+    ucsBflMeasureTrailingSpaces = &H800& * 16
+    ucsBflNoWrap = &H1000& * 16
+    ucsBflLineLimit = &H2000& * 16
+    ucsBflNoClip = &H4000& * 16
+End Enum
 
 '==============================================================================
 ' API
@@ -26,14 +41,37 @@ Private Const CRYPT_STRING_BASE64           As Long = 1
 Private Const ImageLockModeRead             As Long = &H1
 Private Const ImageLockModeWrite            As Long = &H2
 Private Const PixelFormat32bppARGB          As Long = &H26200A
+'--- for GdipCreateFont
+Private Const UnitPoint                     As Long = 3
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
 Private Declare Function VirtualProtect Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flNewProtect As Long, ByRef lpflOldProtect As Long) As Long
 Private Declare Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As Long
 Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
+Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
+Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
+Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hDC As Long) As Long
+Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
+'Private Declare Function ApiGetObject Lib "gdi32" Alias "GetObjectA" (ByVal hObject As Long, ByVal nCount As Long, lpObject As Any) As Long
 '--- gdi+
 Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
+Private Declare Function GdipCreateStringFormat Lib "gdiplus" (ByVal hFormatAttributes As Long, ByVal nLanguage As Integer, hStringFormat As Long) As Long
+Private Declare Function GdipSetStringFormatFlags Lib "gdiplus" (ByVal hStringFormat As Long, ByVal lFlags As Long) As Long
+Private Declare Function GdipSetStringFormatAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
+Private Declare Function GdipSetStringFormatLineAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
+Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal lColor As Long, hBrush As Long) As Long
+Private Declare Function GdipCreateFontFromDC Lib "gdiplus" (ByVal hDC As Long, hCreatedFont As Long) As Long
+Private Declare Function GdipNewPrivateFontCollection Lib "gdiplus" (hFontCollection As Long) As Long
+Private Declare Function GdipPrivateAddFontFile Lib "gdiplus" (ByVal hFontCollection As Long, ByVal lpFileName As Long) As Long
+Private Declare Function GdipCreateFont Lib "gdiplus" (ByVal hFontFamily As Long, ByVal emSize As Single, ByVal lStyle As Long, ByVal lUnit As Long, hFont As Long) As Long
+Private Declare Function GdipGetFontCollectionFamilyList Lib "gdiplus" (ByVal hFontCollection As Long, ByVal lNumSought As Long, aFamilies As Any, lNumFound As Long) As Long
+'Private Declare Function GdipCreateFontFromLogfontA Lib "gdiplus" (ByVal hDC As Long, uLogFont As LOGFONT, hCreatedFont As Long) As Long
+'--- public
+Public Declare Function GdipDeleteStringFormat Lib "gdiplus" (ByVal hStringFormat As Long) As Long
+Public Declare Function GdipDeleteFont Lib "gdiplus" (ByVal hFont As Long) As Long
+Public Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal hBrush As Long) As Long
+Public Declare Function GdipDeletePrivateFontCollection Lib "gdiplus" (hFontCollection As Long) As Long
 #If Not ImplUseShared Then
 '    Private Declare Function VirtualProtect Lib "kernel32" (lpAddress As Any, ByVal dwSize As Long, ByVal flNewProtect As Long, lpflOldProtect As Long) As Long
     Private Declare Function SetTimer Lib "user32" (ByVal hWnd As Long, ByVal nIDEvent As Long, ByVal uElapse As Long, ByVal lpTimerFunc As Long) As Long
@@ -48,6 +86,36 @@ Private Type BitmapData
     Scan0               As Long
     Reserved            As Long
 End Type
+
+Private Enum StringAlignment
+   StringAlignmentNear = 0
+   StringAlignmentCenter = 1
+   StringAlignmentFar = 2
+End Enum
+
+Private Type UcsRgbQuad
+    R                   As Byte
+    G                   As Byte
+    B                   As Byte
+    A                   As Byte
+End Type
+
+'Private Type LOGFONT
+'    lfHeight            As Long
+'    lfWidth             As Long
+'    lfEscapement        As Long
+'    lfOrientation       As Long
+'    lfWeight            As Long
+'    lfItalic            As Byte
+'    lfUnderline         As Byte
+'    lfStrikeOut         As Byte
+'    lfCharSet           As Byte
+'    lfOutPrecision      As Byte
+'    lfClipPrecision     As Byte
+'    lfQuality           As Byte
+'    lfPitchAndFamily    As Byte
+'    lfFaceName(1 To 32) As Byte ' LF_FACESIZE = 32
+'End Type
 
 #If Not ImplUseShared Then
     Private Type ThunkBytes
@@ -70,9 +138,9 @@ End Type
 ' Error handling
 '=========================================================================
 
-Private Function PrintError(sFunction As String) As VbMsgBoxResult
+Private Sub PrintError(sFunction As String)
     Debug.Print Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
-End Function
+End Sub
 
 'Private Function RaiseError(sFunction As String) As VbMsgBoxResult
 '    Err.Raise Err.Number, STR_MODULE_NAME & "." & sFunction & vbCrLf & Err.Source, Err.Description
@@ -82,7 +150,7 @@ End Function
 ' Functions
 '==============================================================================
 
-Public Function BlurBitmap( _
+Public Function GdipBlurBitmap( _
             ByVal hBitmap As Long, _
             ByVal sngRadius As Single, _
             Optional ByVal AffectChannels As Long = 15) As Boolean
@@ -116,7 +184,7 @@ Public Function BlurBitmap( _
         End If
     End If
     '--- success
-    BlurBitmap = True
+    GdipBlurBitmap = True
 QH:
     On Error Resume Next
     If uData.Scan0 <> 0 Then
@@ -241,6 +309,223 @@ End Sub
 Private Function pvSetTrue(bValue As Boolean) As Boolean
     bValue = True
     pvSetTrue = True
+End Function
+
+Public Function GdipPreparePrivateFont(sFileName As String, ByVal lFontSize As Long, hFont As Long, hFontCollection As Long) As Boolean
+    Dim hNewFontCol     As Long
+    Dim hFamily         As Long
+    Dim lNumFamilies    As Long
+    Dim hNewFont        As Long
+    
+    If GdipNewPrivateFontCollection(hNewFontCol) <> 0 Then
+        GoTo QH
+    End If
+    If GdipPrivateAddFontFile(hNewFontCol, StrPtr(sFileName)) <> 0 Then
+        GoTo QH
+    End If
+    If GdipGetFontCollectionFamilyList(hNewFontCol, 1, hFamily, lNumFamilies) <> 0 Or lNumFamilies = 0 Then
+        GoTo QH
+    End If
+    If GdipCreateFont(hFamily, lFontSize, 0, UnitPoint, hNewFont) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hFont <> 0 Then
+        Call GdipDeleteFont(hFont)
+    End If
+    hFont = hNewFont
+    hNewFont = 0
+    If hFontCollection <> 0 Then
+        Call GdipDeletePrivateFontCollection(hFontCollection)
+    End If
+    hFontCollection = hNewFontCol
+    hNewFontCol = 0
+    '--- success
+    GdipPreparePrivateFont = True
+QH:
+    If hNewFont <> 0 Then
+        Call GdipDeleteFont(hNewFont)
+        hNewFont = 0
+    End If
+    If hNewFontCol <> 0 Then
+        Call GdipDeletePrivateFontCollection(hNewFontCol)
+        hNewFontCol = 0
+    End If
+End Function
+
+'Public Function GdipPrepareFont(oFont As StdFont, hFont As Long, Optional ByVal FontWeight As Long) As Boolean
+'    Const FUNC_NAME     As String = "GdipPrepareFont"
+'    Dim pFont           As IFont
+'    Dim hDC             As Long
+'    Dim uLogFont        As LOGFONT
+'    Dim hNewFont        As Long
+'
+'    On Error GoTo EH
+'    Set pFont = oFont
+'    If pFont Is Nothing Then
+'        GoTo QH
+'    End If
+'    hDC = GetDC(0)
+'    Call ApiGetObject(pFont.hFont, Len(uLogFont), uLogFont)
+'    If FontWeight <> 0 Then
+'        uLogFont.lfWeight = FontWeight
+'    End If
+'    If GdipCreateFontFromLogfontA(hDC, uLogFont, hNewFont) <> 0 Then
+'        GoTo QH
+'    End If
+'    '--- commit
+'    If hFont <> 0 Then
+'        Call GdipDeleteFont(hFont)
+'    End If
+'    hFont = hNewFont
+'    hNewFont = 0
+'    '--- success
+'    GdipPrepareFont = True
+'QH:
+'    If hNewFont <> 0 Then
+'        Call GdipDeleteFont(hNewFont)
+'        hNewFont = 0
+'    End If
+'    If hDC <> 0 Then
+'        Call ReleaseDC(0, hDC)
+'        hDC = 0
+'    End If
+'    Exit Function
+'EH:
+'    PrintError FUNC_NAME
+'    Resume QH
+'End Function
+
+Public Function GdipPrepareFont(oFont As StdFont, hFont As Long) As Boolean
+    Const FUNC_NAME     As String = "GdipPrepareFont"
+    Dim hDC             As Long
+    Dim pFont           As IFont
+    Dim hPrevFont       As Long
+    Dim hNewFont        As Long
+    
+    On Error GoTo EH
+    Set pFont = oFont
+    If pFont Is Nothing Then
+        GoTo QH
+    End If
+    hDC = GetDC(0)
+    If hDC = 0 Then
+        GoTo QH
+    End If
+    hPrevFont = SelectObject(hDC, pFont.hFont)
+    If hPrevFont = 0 Then
+        GoTo QH
+    End If
+    If GdipCreateFontFromDC(hDC, hNewFont) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hFont <> 0 Then
+        Call GdipDeleteFont(hFont)
+    End If
+    hFont = hNewFont
+    hNewFont = 0
+    '--- success
+    GdipPrepareFont = True
+QH:
+    If hNewFont <> 0 Then
+        Call GdipDeleteFont(hNewFont)
+        hNewFont = 0
+    End If
+    If hPrevFont <> 0 Then
+        Call SelectObject(hDC, hPrevFont)
+        hPrevFont = 0
+    End If
+    If hDC <> 0 Then
+        Call ReleaseDC(0, hDC)
+        hDC = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
+Public Function GdipPrepareStringFormat(ByVal lFlags As UcsTouchButtonTextFlagsEnum, hStringFormat As Long) As Boolean
+    Const FUNC_NAME     As String = "GdipPrepareStringFormat"
+    Dim hNewFormat      As Long
+    
+    On Error GoTo EH
+    If GdipCreateStringFormat(0, 0, hNewFormat) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatAlign(hNewFormat, lFlags And 3) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatLineAlign(hNewFormat, (lFlags \ 4) And 3) <> 0 Then
+        GoTo QH
+    End If
+    If GdipSetStringFormatFlags(hNewFormat, lFlags \ 16) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hStringFormat <> 0 Then
+        Call GdipDeleteStringFormat(hStringFormat)
+    End If
+    hStringFormat = hNewFormat
+    hNewFormat = 0
+    '--- success
+    GdipPrepareStringFormat = True
+QH:
+    If hNewFormat <> 0 Then
+        Call GdipDeleteStringFormat(hNewFormat)
+        hNewFormat = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Function
+
+Public Function GdipPrepareSolidBrush(ByVal clrValue As OLE_COLOR, hBrush As Long, Optional ByVal Alpha As Single = 1) As Boolean
+    Const FUNC_NAME     As String = "GdipPrepareSolidBrush"
+    Dim hNewBrush       As Long
+    
+    On Error GoTo EH
+    If GdipCreateSolidFill(GdipTranslateColor(clrValue, Alpha), hNewBrush) <> 0 Then
+        GoTo QH
+    End If
+    '--- commit
+    If hBrush <> 0 Then
+        Call GdipDeleteBrush(hBrush)
+    End If
+    hBrush = hNewBrush
+    hNewBrush = 0
+    '--- success
+    GdipPrepareSolidBrush = True
+QH:
+    If hNewBrush <> 0 Then
+        Call GdipDeleteBrush(hNewBrush)
+        hNewBrush = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
+Public Function GdipTranslateColor(ByVal clrValue As OLE_COLOR, Optional ByVal Alpha As Single = 1) As Long
+    Dim uQuad           As UcsRgbQuad
+    Dim lTemp           As Long
+    
+    Call OleTranslateColor(clrValue, 0, VarPtr(uQuad))
+    lTemp = uQuad.R
+    uQuad.R = uQuad.B
+    uQuad.B = lTemp
+    lTemp = Alpha * &HFF
+    If lTemp > 255 Then
+        uQuad.A = 255
+    ElseIf lTemp < 0 Then
+        uQuad.A = 0
+    Else
+        uQuad.A = lTemp
+    End If
+    Call CopyMemory(GdipTranslateColor, uQuad, 4)
 End Function
 
 #If Not ImplUseShared Then
