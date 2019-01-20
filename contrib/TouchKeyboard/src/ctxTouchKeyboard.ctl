@@ -152,9 +152,9 @@ Private Type UcsRgbQuad
 End Type
 
 Private Type UcsHsbColor
-    Hue                 As Double
-    Sat                 As Double
-    Bri                 As Double
+    Hue                 As Single
+    Sat                 As Single
+    Bri                 As Single
     A                   As Byte
 End Type
 
@@ -737,115 +737,81 @@ Private Function pvAdjustColor( _
 End Function
 
 Private Function pvHSBToRGB(hsbColor As UcsHsbColor) As Long
-'--- based on *cool* code by Branco Medeiros (http://www.myrealbox.com/branco_medeiros)
-'--- Converts an HSB value to the RGB color model. Adapted from Java.awt.Color.java
-    Dim dblH            As Double
-    Dim dblS            As Double
-    Dim dblL            As Double
-    Dim dblF            As Double
-    Dim dblP            As Double
-    Dim dblQ            As Double
-    Dim dblT            As Double
-    Dim lH              As Long
+    Dim lMax            As Long
+    Dim lMid            As Long
+    Dim lMin            As Long
+    Dim sngDelta        As Single
     Dim rgbColor        As UcsRgbQuad
+    Dim lHue            As Long
 
+    lMax = hsbColor.Bri * 255
+    lMin = (1 - hsbColor.Sat) * CSng(lMax)
+    sngDelta = CSng(lMax - lMin) / 60
     With rgbColor
-        If hsbColor.Sat > 0 Then
-            dblH = hsbColor.Hue * 6 '/ 60
-            dblL = hsbColor.Bri '/ 100
-            dblS = hsbColor.Sat '/ 100
-            lH = Int(dblH)
-            dblF = dblH - lH
-            dblP = dblL * (1 - dblS)
-            dblQ = dblL * (1 - dblS * dblF)
-            dblT = dblL * (1 - dblS * (1 - dblF))
-            Select Case lH
-            Case 0
-                .R = dblL * 255
-                .G = dblT * 255
-                .B = dblP * 255
-            Case 1
-                .R = dblQ * 255
-                .G = dblL * 255
-                .B = dblP * 255
-            Case 2
-                .R = dblP * 255
-                .G = dblL * 255
-                .B = dblT * 255
-            Case 3
-                .R = dblP * 255
-                .G = dblQ * 255
-                .B = dblL * 255
-            Case 4
-                .R = dblT * 255
-                .G = dblP * 255
-                .B = dblL * 255
-            Case 5
-                .R = dblL * 255
-                .G = dblP * 255
-                .B = dblQ * 255
-            End Select
-        Else
-            .R = hsbColor.Bri * 255
-            .G = .R
-            .B = .R
-        End If
+        lHue = hsbColor.Hue * 360
+        Select Case lHue
+        Case 0 To 60
+            lMid = (lHue - 0) * sngDelta + lMin
+            .R = lMax: .G = lMid: .B = lMin
+        Case 60 To 120
+            lMid = -(lHue - 120) * sngDelta + lMin
+            .R = lMid: .G = lMax: .B = lMin
+        Case 120 To 180
+            lMid = (lHue - 120) * sngDelta + lMin
+            .R = lMin: .G = lMax: .B = lMid
+        Case 180 To 240
+            lMid = -(lHue - 240) * sngDelta + lMin
+            .R = lMin: .G = lMid: .B = lMax
+        Case 240 To 300
+            lMid = (lHue - 240) * sngDelta + lMin
+            .R = lMid: .G = lMin: .B = lMax
+        Case 300 To 360
+            lMid = -(lHue - 360) * sngDelta + lMin
+            .R = lMax: .G = lMin: .B = lMid
+        End Select
         .A = hsbColor.A
     End With
     Call CopyMemory(pvHSBToRGB, rgbColor, 4)
 End Function
 
 Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
-'--- based on *cool* code by Branco Medeiros (http://www.myrealbox.com/branco_medeiros)
-'--- Converts an RGB value to the HSB color model. Adapted from Java.awt.Color.java
-    Dim dblTemp         As Double
+    Dim rgbColor        As UcsRgbQuad
     Dim lMin            As Long
     Dim lMax            As Long
-    Dim lDelta          As Long
-    Dim rgbColor        As UcsRgbQuad
+    Dim sngDelta        As Single
   
     Call CopyMemory(rgbColor, clrValue, 4)
-    If rgbColor.R > rgbColor.G Then
-        If rgbColor.R > rgbColor.B Then
-            lMax = rgbColor.R
+    With rgbColor
+        If .R > .G Then
+            lMax = .R: lMin = .G
         Else
-            lMax = rgbColor.B
+            lMax = .G: lMin = .R
         End If
-    ElseIf rgbColor.G > rgbColor.B Then
-        lMax = rgbColor.G
-    Else
-        lMax = rgbColor.B
-    End If
-    If rgbColor.R < rgbColor.G Then
-        If rgbColor.R < rgbColor.B Then
-            lMin = rgbColor.R
-        Else
-            lMin = rgbColor.B
+        If .B > lMax Then
+            lMax = .B
+        ElseIf .B < lMin Then
+            lMin = .B
         End If
-    ElseIf rgbColor.G < rgbColor.B Then
-        lMin = rgbColor.G
-    Else
-        lMin = rgbColor.B
-    End If
-    lDelta = lMax - lMin
-    pvRGBToHSB.Bri = lMax / 255
-    If lMax > 0 Then
-        pvRGBToHSB.Sat = lDelta / lMax
-        If lDelta > 0 Then
-            If lMax = rgbColor.R Then
-                dblTemp = (CLng(rgbColor.G) - rgbColor.B) / lDelta
-            ElseIf lMax = rgbColor.G Then
-                dblTemp = 2 + (CLng(rgbColor.B) - rgbColor.R) / lDelta
-            Else
-                dblTemp = 4 + (CLng(rgbColor.R) - rgbColor.G) / lDelta
-            End If
-            pvRGBToHSB.Hue = dblTemp / 6
+        pvRGBToHSB.Bri = CSng(lMax) / 255
+        sngDelta = lMax - lMin
+        If sngDelta > 0 Then
+            '--- note: sngDelta > 0 => lMax > 0
+            pvRGBToHSB.Sat = sngDelta / lMax
+            Select Case lMax
+            Case .R
+                pvRGBToHSB.Hue = (0 + (CSng(.G) - .B) / sngDelta) / 6
+            Case .G
+                pvRGBToHSB.Hue = (2 + (CSng(.B) - .R) / sngDelta) / 6
+            Case Else
+                pvRGBToHSB.Hue = (4 + (CSng(.R) - .G) / sngDelta) / 6
+            End Select
             If pvRGBToHSB.Hue < 0 Then
                 pvRGBToHSB.Hue = pvRGBToHSB.Hue + 1
             End If
         End If
-    End If
-    pvRGBToHSB.A = rgbColor.A
+        pvRGBToHSB.A = .A
+        Debug.Assert pvHSBToRGB(pvRGBToHSB) = clrValue
+    End With
 End Function
 
 Private Function Ceil(ByVal Value As Double) As Double
