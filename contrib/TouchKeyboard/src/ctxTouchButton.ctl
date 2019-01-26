@@ -35,7 +35,7 @@ Attribute Click.VB_UserMemId = -600
 Event DblClick()
 Attribute DblClick.VB_UserMemId = -601
 Event ContextMenu()
-Event OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsTouchButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
+Event OwnerDraw(ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
 Event RegisterCancelMode(oCtl As Object, Handled As Boolean)
 Event KeyDown(KeyCode As Integer, Shift As Integer)
 Attribute KeyDown.VB_UserMemId = -602
@@ -53,7 +53,8 @@ Attribute MouseUp.VB_UserMemId = -607
 ' Public enums
 '=========================================================================
 
-Public Enum UcsTouchButtonStateEnum
+#If Not ImplUseShared Then
+Public Enum UcsNineButtonStateEnum
     ucsBstNormal = 0
     ucsBstHover = 1
     ucsBstPressed = 2
@@ -61,11 +62,12 @@ Public Enum UcsTouchButtonStateEnum
     ucsBstDisabled = 4
     ucsBstFocused = 8
 End Enum
-Private Const ucsBstLast = ucsBstFocused
 
-Public Enum UcsTouchButtonStyleEnum
+Public Enum UcsNineButtonStyleEnum
     ucsBtyNone
 End Enum
+#End If
+Private Const ucsBstLast = ucsBstFocused
 
 '=========================================================================
 ' API
@@ -201,10 +203,10 @@ Private Const DEF_SHADOWOPACITY     As Single = 0.5
 Private Const DEF_SHADOWCOLOR       As Long = vbButtonShadow
 
 '--- design-time
-Private m_eStyle                As UcsTouchButtonStyleEnum
+Private m_eStyle                As UcsNineButtonStyleEnum
 Private m_sngOpacity            As Single
 Private m_sngAnimationDuration  As Single
-Private m_uButton(0 To ucsBstLast) As UcsTouchButtonStateType
+Private m_uButton(0 To ucsBstLast) As UcsNineButtonStateType
 Private m_sCaption              As String
 Private WithEvents m_oFont      As StdFont
 Attribute m_oFont.VB_VarHelpID = -1
@@ -213,7 +215,7 @@ Private m_bManualFocus          As Boolean
 Private m_oPicture              As StdPicture
 Private m_clrMask               As OLE_COLOR
 '--- run-time
-Private m_eState                As UcsTouchButtonStateEnum
+Private m_eState                As UcsNineButtonStateEnum
 Private m_hPrevBitmap           As Long
 Private m_hBitmap               As Long
 Private m_hAttributes           As Long
@@ -236,12 +238,12 @@ Private m_hPictureAttributes    As Long
     Private m_uTimer            As FireOnceTimerData
 #End If
 
-Private Type UcsTouchButtonStateType
+Private Type UcsNineButtonStateType
     ImageArray()        As Byte
     ImagePatch          As cNinePatch
     ImageOpacity        As Single
     TextFont            As StdFont
-    TextFlags           As UcsTouchButtonTextFlagsEnum
+    TextFlags           As UcsNineButtonTextFlagsEnum
     TextColor           As OLE_COLOR
     TextOpacity         As Single
     TextOffsetX         As Single
@@ -270,11 +272,11 @@ End Function
 
 '== design-time ==========================================================
 
-Property Get Style() As UcsTouchButtonStyleEnum
+Property Get Style() As UcsNineButtonStyleEnum
     Style = m_eStyle
 End Property
 
-Property Let Style(ByVal eValue As UcsTouchButtonStyleEnum)
+Property Let Style(ByVal eValue As UcsNineButtonStyleEnum)
     If m_eStyle <> eValue Then
         m_eStyle = eValue
         pvSetStyle eValue
@@ -392,11 +394,11 @@ Property Let MaskColor(ByVal clrValue As OLE_COLOR)
     End If
 End Property
 
-Property Get ButtonState() As UcsTouchButtonStateEnum
+Property Get ButtonState() As UcsNineButtonStateEnum
     ButtonState = m_eState
 End Property
 
-Property Let ButtonState(ByVal eState As UcsTouchButtonStateEnum)
+Property Let ButtonState(ByVal eState As UcsNineButtonStateEnum)
     pvState(m_eState And Not eState) = False
     pvState(eState And Not m_eState) = True
     PropertyChanged
@@ -416,14 +418,14 @@ Property Let Value(ByVal bValue As Boolean)
     End If
 End Property
 
-Property Get ButtonImageArray(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Byte()
+Property Get ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Byte()
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonImageArray = m_uButton(eState).ImageArray
 End Property
 
-Property Let ButtonImageArray(Optional ByVal eState As UcsTouchButtonStateEnum = -1, baValue() As Byte)
+Property Let ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = -1, baValue() As Byte)
     Dim oPatch          As cNinePatch
     
     If eState < 0 Then
@@ -439,7 +441,7 @@ Property Let ButtonImageArray(Optional ByVal eState As UcsTouchButtonStateEnum =
     Repaint
 End Property
 
-Property Get ButtonImageBitmap(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Long
+Property Get ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Long
     If eState < 0 Then
         eState = m_eState
     End If
@@ -448,7 +450,7 @@ Property Get ButtonImageBitmap(Optional ByVal eState As UcsTouchButtonStateEnum 
     End If
 End Property
 
-Property Let ButtonImageBitmap(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal hBitmap As Long)
+Property Let ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal hBitmap As Long)
     Dim oPatch          As cNinePatch
     Dim hNewBitmap      As Long
     
@@ -467,14 +469,14 @@ Property Let ButtonImageBitmap(Optional ByVal eState As UcsTouchButtonStateEnum 
     Repaint
 End Property
 
-Property Get ButtonImageOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonImageOpacity = m_uButton(eState).ImageOpacity
 End Property
 
-Property Let ButtonImageOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -484,14 +486,14 @@ Property Let ButtonImageOpacity(Optional ByVal eState As UcsTouchButtonStateEnum
     End If
 End Property
 
-Property Get ButtonTextFont(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As StdFont
+Property Get ButtonTextFont(Optional ByVal eState As UcsNineButtonStateEnum = -1) As StdFont
     If eState < 0 Then
         eState = m_eState
     End If
     Set ButtonTextFont = m_uButton(eState).TextFont
 End Property
 
-Property Set ButtonTextFont(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal oValue As StdFont)
+Property Set ButtonTextFont(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal oValue As StdFont)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -501,14 +503,14 @@ Property Set ButtonTextFont(Optional ByVal eState As UcsTouchButtonStateEnum = -
     End If
 End Property
 
-Property Get ButtonTextFlags(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As UcsTouchButtonTextFlagsEnum
+Property Get ButtonTextFlags(Optional ByVal eState As UcsNineButtonStateEnum = -1) As UcsNineButtonTextFlagsEnum
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonTextFlags = m_uButton(eState).TextFlags
 End Property
 
-Property Let ButtonTextFlags(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal eValue As UcsTouchButtonTextFlagsEnum)
+Property Let ButtonTextFlags(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal eValue As UcsNineButtonTextFlagsEnum)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -518,14 +520,14 @@ Property Let ButtonTextFlags(Optional ByVal eState As UcsTouchButtonStateEnum = 
     End If
 End Property
 
-Property Get ButtonTextColor(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As OLE_COLOR
+Property Get ButtonTextColor(Optional ByVal eState As UcsNineButtonStateEnum = -1) As OLE_COLOR
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonTextColor = m_uButton(eState).TextColor
 End Property
 
-Property Let ButtonTextColor(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal clrValue As OLE_COLOR)
+Property Let ButtonTextColor(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal clrValue As OLE_COLOR)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -535,14 +537,14 @@ Property Let ButtonTextColor(Optional ByVal eState As UcsTouchButtonStateEnum = 
     End If
 End Property
 
-Property Get ButtonTextOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonTextOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonTextOpacity = m_uButton(eState).TextOpacity
 End Property
 
-Property Let ButtonTextOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonTextOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -552,14 +554,14 @@ Property Let ButtonTextOpacity(Optional ByVal eState As UcsTouchButtonStateEnum 
     End If
 End Property
 
-Property Get ButtonTextOffsetX(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonTextOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonTextOffsetX = m_uButton(eState).TextOffsetX
 End Property
 
-Property Let ButtonTextOffsetX(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonTextOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -569,14 +571,14 @@ Property Let ButtonTextOffsetX(Optional ByVal eState As UcsTouchButtonStateEnum 
     End If
 End Property
 
-Property Get ButtonTextOffsetY(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonTextOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonTextOffsetY = m_uButton(eState).TextOffsetY
 End Property
 
-Property Let ButtonTextOffsetY(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonTextOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -586,14 +588,14 @@ Property Let ButtonTextOffsetY(Optional ByVal eState As UcsTouchButtonStateEnum 
     End If
 End Property
 
-Property Get ButtonShadowColor(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As OLE_COLOR
+Property Get ButtonShadowColor(Optional ByVal eState As UcsNineButtonStateEnum = -1) As OLE_COLOR
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonShadowColor = m_uButton(eState).ShadowColor
 End Property
 
-Property Let ButtonShadowColor(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal clrValue As OLE_COLOR)
+Property Let ButtonShadowColor(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal clrValue As OLE_COLOR)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -603,14 +605,14 @@ Property Let ButtonShadowColor(Optional ByVal eState As UcsTouchButtonStateEnum 
     End If
 End Property
 
-Property Get ButtonShadowOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonShadowOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonShadowOpacity = m_uButton(eState).ShadowOpacity
 End Property
 
-Property Let ButtonShadowOpacity(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonShadowOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -620,14 +622,14 @@ Property Let ButtonShadowOpacity(Optional ByVal eState As UcsTouchButtonStateEnu
     End If
 End Property
 
-Property Get ButtonShadowOffsetX(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonShadowOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonShadowOffsetX = m_uButton(eState).ShadowOffsetX
 End Property
 
-Property Let ButtonShadowOffsetX(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonShadowOffsetX(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -637,14 +639,14 @@ Property Let ButtonShadowOffsetX(Optional ByVal eState As UcsTouchButtonStateEnu
     End If
 End Property
 
-Property Get ButtonShadowOffsetY(Optional ByVal eState As UcsTouchButtonStateEnum = -1) As Single
+Property Get ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
     If eState < 0 Then
         eState = m_eState
     End If
     ButtonShadowOffsetY = m_uButton(eState).ShadowOffsetY
 End Property
 
-Property Let ButtonShadowOffsetY(Optional ByVal eState As UcsTouchButtonStateEnum = -1, ByVal sngValue As Single)
+Property Let ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
     If eState < 0 Then
         eState = m_eState
     End If
@@ -656,12 +658,12 @@ End Property
 
 '== private ==============================================================
 
-Private Property Get pvState(ByVal eState As UcsTouchButtonStateEnum) As Boolean
+Private Property Get pvState(ByVal eState As UcsNineButtonStateEnum) As Boolean
     pvState = (m_eState And eState) <> 0
 End Property
 
-Private Property Let pvState(ByVal eState As UcsTouchButtonStateEnum, ByVal bValue As Boolean)
-    Dim ePrevState      As UcsTouchButtonStateEnum
+Private Property Let pvState(ByVal eState As UcsNineButtonStateEnum, ByVal bValue As Boolean)
+    Dim ePrevState      As UcsNineButtonStateEnum
     
     ePrevState = m_eState
     If bValue Then
@@ -714,7 +716,7 @@ End Sub
 
 '== private ==============================================================
 
-Private Function pvGetEffectiveState(ByVal eState As UcsTouchButtonStateEnum) As UcsTouchButtonStateEnum
+Private Function pvGetEffectiveState(ByVal eState As UcsNineButtonStateEnum) As UcsNineButtonStateEnum
     If (eState And ucsBstDisabled) <> 0 Then
         If Not m_uButton(ucsBstDisabled).ImagePatch Is Nothing Then
             pvGetEffectiveState = ucsBstDisabled
@@ -734,7 +736,7 @@ Private Function pvGetEffectiveState(ByVal eState As UcsTouchButtonStateEnum) As
     pvGetEffectiveState = eState
 End Function
 
-Private Function pvPrepareBitmap(ByVal eState As UcsTouchButtonStateEnum, hFocusBitmap As Long, hBitmap As Long) As Boolean
+Private Function pvPrepareBitmap(ByVal eState As UcsNineButtonStateEnum, hFocusBitmap As Long, hBitmap As Long) As Boolean
     Const FUNC_NAME     As String = "pvPrepareBitmap"
     Dim hGraphics       As Long
     Dim hNewFocusBitmap As Long
@@ -1210,7 +1212,7 @@ EH:
     Resume QH
 End Function
 
-Private Sub pvSetStyle(ByVal eStyle As UcsTouchButtonStyleEnum)
+Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
     #If eStyle Then '--- touch arg
     #End If
     pvSetEmptyStyle
@@ -1218,7 +1220,7 @@ End Sub
 
 Private Sub pvSetEmptyStyle()
     Dim lIdx            As Long
-    Dim uEmpty          As UcsTouchButtonStateType
+    Dim uEmpty          As UcsNineButtonStateType
 
     With uEmpty
         .ImageOpacity = DEF_IMAGEOPACITY

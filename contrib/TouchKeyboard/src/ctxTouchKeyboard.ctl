@@ -549,7 +549,7 @@ Private Sub btn_MouseDown(Index As Integer, Button As Integer, Shift As Integer,
     RaiseEvent ButtonMouseDown(Index)
 End Sub
 
-Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsTouchButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
+Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
     Const FUNC_NAME     As String = "btn_OwnerDraw"
     Const FA_ARROW_ALT_CIRCLE_UP As Long = &HF35B&
     Const FA_BACKSPACE  As Long = &HF55A&
