@@ -108,11 +108,13 @@ Private Const DEF_LAYOUT1           As String = "q w e r t y u i o p <=|1.25|D "
                                                 "^^|||N z x c v b n m ! ? ^^|1.25| " & _
                                                 "?!123|3|D|N _|6 ?!123|1.25|D keyb||D"
 Private Const DEF_FORECOLOR         As Long = vbWindowBackground
+Private Const DEF_ENABLED           As Boolean = True
 
 Private m_clrFore               As OLE_COLOR
 Private WithEvents m_oFont      As StdFont
 Attribute m_oFont.VB_VarHelpID = -1
 Private m_sLayout               As String
+'--- run-time
 Private m_lButtonCurrent        As Long
 Private m_cButtonRows()         As Collection
 Private m_oCtlCancelMode        As Object
@@ -123,13 +125,38 @@ Private m_hAwesomeRegular       As Long
 Private m_hAwesomeColRegular    As Long
 Private m_hAwesomeSolid         As Long
 Private m_hAwesomeColSolid      As Long
+'--- debug
+Private m_sInstanceName         As String
+#If DebugMode Then
+    Private m_sDebugID          As String
+#End If
 
 '=========================================================================
 ' Error handling
 '=========================================================================
 
+Friend Function frInstanceName() As String
+    frInstanceName = m_sInstanceName
+End Function
+
+Private Property Get MODULE_NAME() As String
+#If ImplUseShared Then
+    #If DebugMode Then
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName, m_sDebugID)
+    #Else
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName)
+    #End If
+#Else
+    MODULE_NAME = STR_MODULE_NAME
+#End If
+End Property
+
 Private Function PrintError(sFunction As String) As VbMsgBoxResult
-    Debug.Print Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
+#If ImplUseShared Then
+    PopPrintError sFunction, MODULE_NAME, PushError
+#Else
+    Debug.Print "Critical error: " & Err.Description & " [" & MODULE_NAME & "." & sFunction & "]", Timer
+#End If
 End Function
 
 'Private Function RaiseError(sFunction As String) As VbMsgBoxResult
@@ -141,6 +168,7 @@ End Function
 '=========================================================================
 
 Property Get ForeColor() As OLE_COLOR
+Attribute ForeColor.VB_UserMemId = -513
     ForeColor = m_clrFore
 End Property
 
@@ -154,6 +182,7 @@ Property Let ForeColor(ByVal clrValue As OLE_COLOR)
 End Property
 
 Property Get Font() As StdFont
+Attribute Font.VB_UserMemId = -512
     Set Font = m_oFont
 End Property
 
@@ -179,6 +208,18 @@ Property Let Layout(sValue As String)
         Repaint
         PropertyChanged
     End If
+End Property
+
+Property Get Enabled() As Boolean
+Attribute Enabled.VB_UserMemId = -514
+    Enabled = UserControl.Enabled
+End Property
+
+Property Let Enabled(ByVal bValue As Boolean)
+    If UserControl.Enabled <> bValue Then
+        UserControl.Enabled = bValue
+    End If
+    PropertyChanged
 End Property
 
 '= run-time ==============================================================
@@ -650,25 +691,45 @@ EH:
     Resume Next
 End Sub
 
-'=========================================================================
-' Base class events
-'=========================================================================
-
 Private Sub UserControl_HitTest(X As Single, Y As Single, HitResult As Integer)
     HitResult = vbHitResultHit
 End Sub
 
 Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    Const FUNC_NAME     As String = "UserControl_MouseMove"
+    
+    On Error GoTo EH
     CancelMode
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_InitProperties()
+    Const FUNC_NAME     As String = "UserControl_InitProperties"
+    
+    On Error GoTo EH
     ForeColor = DEF_FORECOLOR
-    Font = Ambient.Font
+    Set Font = Ambient.Font
     Layout = DEF_LAYOUT1
+    Enabled = DEF_ENABLED
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
+    Const FUNC_NAME     As String = "UserControl_ReadProperties"
+    
+    On Error GoTo EH
     If Ambient.UserMode Then
         If IsCompileTime(Extender) Then
             Exit Sub
@@ -679,26 +740,77 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         Set m_oFont = .ReadProperty("Font", Ambient.Font)
         pvPrepareFontAwesome
         Layout = .ReadProperty("Layout", DEF_LAYOUT1)
+        Enabled = .ReadProperty("Enabled", DEF_ENABLED)
     End With
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
+    Const FUNC_NAME     As String = "UserControl_WriteProperties"
+    
+    On Error GoTo EH
     With PropBag
         Call .WriteProperty("ForeColor", ForeColor, DEF_FORECOLOR)
         Call .WriteProperty("Font", Font, Ambient.Font)
         Call .WriteProperty("Layout", Layout, DEF_LAYOUT1)
+        Call .WriteProperty("Enabled", Enabled, DEF_ENABLED)
     End With
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub UserControl_Resize()
+    Const FUNC_NAME     As String = "UserControl_Resize"
+    
+    On Error GoTo EH
     pvPrepareForeground m_hForeBitmap
     pvSizeLayout
     Repaint
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
+
+Private Sub UserControl_Show()
+    Const FUNC_NAME     As String = "UserControl_Show"
+    
+    On Error GoTo EH
+    If Not m_bShown Then
+        m_bShown = True
+        Repaint
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Sub
+
+Private Sub UserControl_Hide()
+    m_bShown = False
+End Sub
+
+'=========================================================================
+' Base class events
+'=========================================================================
 
 Private Sub UserControl_Initialize()
     Dim aInput(0 To 3)  As Long
     
+    #If DebugMode Then
+        DebugInstanceInit MODULE_NAME, m_sDebugID, Me
+    #End If
     If GetModuleHandle("gdiplus") = 0 Then
         aInput(0) = 1
         Call GdiplusStartup(0, aInput(0))
@@ -706,17 +818,6 @@ Private Sub UserControl_Initialize()
     Set m_cButtonImageCache = New Collection
     ReDim m_cButtonRows(0 To 0) As Collection
     Set m_cButtonRows(0) = New Collection
-End Sub
-
-Private Sub UserControl_Show()
-    If Not m_bShown Then
-        m_bShown = True
-        Repaint
-    End If
-End Sub
-
-Private Sub UserControl_Hide()
-    m_bShown = False
 End Sub
 
 Private Sub UserControl_Terminate()
@@ -741,5 +842,8 @@ Private Sub UserControl_Terminate()
         Call GdipDeletePrivateFontCollection(m_hAwesomeColSolid)
         m_hAwesomeColSolid = 0
     End If
+    #If DebugMode Then
+        DebugInstanceTerm MODULE_NAME, m_sDebugID
+    #End If
 End Sub
 

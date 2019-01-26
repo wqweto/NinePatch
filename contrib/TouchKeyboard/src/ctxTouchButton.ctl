@@ -237,6 +237,11 @@ Private m_hPictureAttributes    As Long
 #If ImplHasTimers Then
     Private m_uTimer            As FireOnceTimerData
 #End If
+'--- debug
+Private m_sInstanceName         As String
+#If DebugMode Then
+    Private m_sDebugID          As String
+#End If
 
 Private Type UcsNineButtonStateType
     ImageArray()        As Byte
@@ -258,13 +263,29 @@ End Type
 ' Error handling
 '=========================================================================
 
-Private Function PrintError(sFunction As String) As VbMsgBoxResult
-    Debug.Print Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
+Friend Function frInstanceName() As String
+    frInstanceName = m_sInstanceName
 End Function
 
-'Private Function RaiseError(sFunction As String) As VbMsgBoxResult
-'    Err.Raise Err.Number, STR_MODULE_NAME & "." & sFunction & vbCrLf & Err.Source, Err.Description
-'End Function
+Private Property Get MODULE_NAME() As String
+#If ImplUseShared Then
+    #If DebugMode Then
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName, m_sDebugID)
+    #Else
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName)
+    #End If
+#Else
+    MODULE_NAME = STR_MODULE_NAME
+#End If
+End Property
+
+Private Function PrintError(sFunction As String) As VbMsgBoxResult
+#If ImplUseShared Then
+    PopPrintError sFunction, MODULE_NAME, PushError
+#Else
+    Debug.Print "Critical error: " & Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
+#End If
+End Function
 
 '=========================================================================
 ' Properties
@@ -1550,6 +1571,12 @@ Private Sub UserControl_InitProperties()
     ForeColor = DEF_FORECOLOR
     ManualFocus = DEF_MANUALFOCUS
     MaskColor = DEF_MASKCOLOR
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -1571,6 +1598,12 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         ManualFocus = .ReadProperty("ManualFocus", DEF_MANUALFOCUS)
         MaskColor = .ReadProperty("MaskColor", DEF_MASKCOLOR)
     End With
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -1633,6 +1666,9 @@ End Sub
 Private Sub UserControl_Initialize()
     Dim aInput(0 To 3)  As Long
     
+    #If DebugMode Then
+        DebugInstanceInit MODULE_NAME, m_sDebugID, Me
+    #End If
     If GetModuleHandle("gdiplus") = 0 Then
         aInput(0) = 1
         Call GdiplusStartup(0, aInput(0))
@@ -1675,6 +1711,9 @@ Private Sub UserControl_Terminate()
     End If
     #If ImplHasTimers Then
         TerminateFireOnceTimer m_uTimer
+    #End If
+    #If DebugMode Then
+        DebugInstanceTerm MODULE_NAME, m_sDebugID
     #End If
 End Sub
 

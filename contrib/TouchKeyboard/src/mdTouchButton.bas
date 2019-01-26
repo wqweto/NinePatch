@@ -1,7 +1,7 @@
 Attribute VB_Name = "mdTouchKeyboard"
 Option Explicit
 DefObj A-Z
-Private Const STR_MODULE_NAME As String = "mdTouchKeyboard"
+Private Const MODULE_NAME As String = "mdTouchKeyboard"
 
 #Const ImplUseShared = NPPNG_USE_SHARED <> 0
 
@@ -158,12 +158,12 @@ End Type
 '=========================================================================
 
 Private Sub PrintError(sFunction As String)
-    Debug.Print Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
+#If ImplUseShared Then
+    PopPrintError sFunction, MODULE_NAME, PushError
+#Else
+    Debug.Print "Ciritical error: " & Err.Description & " [" & MODULE_NAME & "." & sFunction & "]", Timer
+#End If
 End Sub
-
-'Private Function RaiseError(sFunction As String) As VbMsgBoxResult
-'    Err.Raise Err.Number, STR_MODULE_NAME & "." & sFunction & vbCrLf & Err.Source, Err.Description
-'End Function
 
 '==============================================================================
 ' Functions
