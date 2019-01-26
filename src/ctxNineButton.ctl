@@ -189,8 +189,9 @@ Private Declare Function GdipCloneImage Lib "gdiplus" (ByVal hImage As Long, hCl
 Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
 #If Not ImplUseShared Then
-    Private Declare Function GetSystemTimeAsFileTime Lib "kernel32" (lpSystemTimeAsFileTime As Currency) As Long
     Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
+    Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
+    Private Declare Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #End If
 
 Private Type RECTF
@@ -366,6 +367,11 @@ Private m_hPictureAttributes    As Long
 #If ImplHasTimers Then
     Private m_uTimer            As FireOnceTimerData
 #End If
+'--- debug
+Private m_sInstanceName         As String
+#If DebugMode Then
+    Private m_sDebugID          As String
+#End If
 
 Private Type UcsNineButtonStateType
     ImageArray()        As Byte
@@ -452,8 +458,28 @@ End Enum
 ' Error handling
 '=========================================================================
 
+Friend Function frInstanceName() As String
+    frInstanceName = m_sInstanceName
+End Function
+
+Private Property Get MODULE_NAME() As String
+#If ImplUseShared Then
+    #If DebugMode Then
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName, m_sDebugID)
+    #Else
+        MODULE_NAME = GetModuleInstance(STR_MODULE_NAME, frInstanceName)
+    #End If
+#Else
+    MODULE_NAME = STR_MODULE_NAME
+#End If
+End Property
+
 Private Function PrintError(sFunction As String) As VbMsgBoxResult
-    Debug.Print STR_MODULE_NAME & "." & sFunction & ": " & Err.Description, Timer
+#If ImplUseShared Then
+    PopPrintError sFunction, MODULE_NAME, PushError
+#Else
+    Debug.Print "Critical error: " & Err.Description & " [" & MODULE_NAME & "." & sFunction & "]", Timer
+#End If
 End Function
 
 'Private Function RaiseError(sFunction As String) As VbMsgBoxResult
@@ -850,6 +876,11 @@ Property Let ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum
     End If
 End Property
 
+Property Get DownButton() As Integer
+Attribute DownButton.VB_MemberFlags = "400"
+    DownButton = m_nDownButton
+End Property
+
 '== private ==============================================================
 
 Private Property Get pvState(ByVal eState As UcsNineButtonStateEnum) As Boolean
@@ -892,7 +923,7 @@ Public Sub Repaint()
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
         UserControl.Refresh
-        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
+'        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
     Exit Sub
 EH:
@@ -905,7 +936,7 @@ Public Sub CancelMode()
 End Sub
 
 Friend Sub frTimer()
-    pvAnimateState DateTimer - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
+    pvAnimateState TimerEx - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
 End Sub
 
 '== private ==============================================================
@@ -1384,7 +1415,7 @@ Private Function pvTranslateColor(ByVal clrValue As OLE_COLOR, Optional ByVal Al
     Call CopyMemory(pvTranslateColor, uQuad, 4)
 End Function
 
-Private Function pvRegisterCancelMode(oCtl As Object) As Boolean
+Private Function pvParentRegisterCancelMode(oCtl As Object) As Boolean
     Dim bHandled        As Boolean
     
     RaiseEvent RegisterCancelMode(oCtl, bHandled)
@@ -1394,7 +1425,7 @@ Private Function pvRegisterCancelMode(oCtl As Object) As Boolean
         On Error GoTo 0
     End If
     '--- success
-    pvRegisterCancelMode = True
+    pvParentRegisterCancelMode = True
 QH:
 End Function
 
@@ -1432,7 +1463,7 @@ Private Function pvStartAnimation(ByVal sngDuration As Single, ByVal sngOpacity1
     m_hPrevBitmap = m_hBitmap
     m_hBitmap = hNewBitmap
     hNewBitmap = 0
-    m_dblAnimationStart = DateTimer
+    m_dblAnimationStart = TimerEx
     m_dblAnimationEnd = m_dblAnimationStart + sngDuration
     m_sngAnimationOpacity1 = sngOpacity1
     m_sngAnimationOpacity2 = sngOpacity2
@@ -1798,7 +1829,7 @@ Private Sub pvHandleMouseDown(Button As Integer, Shift As Integer, X As Single, 
     m_sngDownY = Y
     If (Button And vbLeftButton) <> 0 Then
         If pvHitTest(X, Y) <> vbHitResultOutside Then
-            pvRegisterCancelMode Me
+            pvParentRegisterCancelMode Me
             pvState(ucsBstPressed Or ucsBstFocused * (1 + m_bManualFocus)) = True
         End If
     End If
@@ -1892,11 +1923,13 @@ EH:
 End Function
 
 #If Not ImplUseShared Then
-Private Property Get DateTimer() As Double
-    Dim cDateTime       As Currency
+Private Property Get TimerEx() As Double
+    Dim cFreq           As Currency
+    Dim cValue          As Currency
     
-    Call GetSystemTimeAsFileTime(cDateTime)
-    DateTimer = CDbl(cDateTime - 9435304800000@) / 1000#
+    Call QueryPerformanceFrequency(cFreq)
+    Call QueryPerformanceCounter(cValue)
+    TimerEx = cValue / cFreq
 End Property
 
 Private Function FromBase64Array(sText As String) As Byte()
@@ -1974,7 +2007,7 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
     RaiseEvent MouseMove(Button, Shift, X, Y)
     If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
         If Not pvState(ucsBstHover) Then
-            If pvRegisterCancelMode(Me) Then
+            If pvParentRegisterCancelMode(Me) Then
                 pvState(ucsBstHover) = True
             End If
         End If
@@ -2112,6 +2145,12 @@ Private Sub UserControl_InitProperties()
     ForeColor = DEF_FORECOLOR
     ManualFocus = DEF_MANUALFOCUS
     MaskColor = DEF_MASKCOLOR
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -2133,6 +2172,12 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         ManualFocus = .ReadProperty("ManualFocus", DEF_MANUALFOCUS)
         MaskColor = .ReadProperty("MaskColor", DEF_MASKCOLOR)
     End With
+    On Error GoTo QH
+    m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
+    #If DebugMode Then
+        DebugInstanceName m_sInstanceName, m_sDebugID
+    #End If
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -2183,9 +2228,16 @@ Private Sub UserControl_Hide()
     m_bShown = False
 End Sub
 
+'=========================================================================
+' Base class events
+'=========================================================================
+
 Private Sub UserControl_Initialize()
     Dim aInput(0 To 3)  As Long
     
+    #If DebugMode Then
+        DebugInstanceInit MODULE_NAME, m_sDebugID, Me
+    #End If
     If GetModuleHandle("gdiplus") = 0 Then
         aInput(0) = 1
         Call GdiplusStartup(0, aInput(0))
@@ -2228,6 +2280,9 @@ Private Sub UserControl_Terminate()
     End If
     #If ImplHasTimers Then
         TerminateFireOnceTimer m_uTimer
+    #End If
+    #If DebugMode Then
+        DebugInstanceTerm MODULE_NAME, m_sDebugID
     #End If
 End Sub
 
