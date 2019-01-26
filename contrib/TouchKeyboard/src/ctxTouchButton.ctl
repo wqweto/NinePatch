@@ -122,7 +122,8 @@ Private Declare Function GdipCloneImage Lib "gdiplus" (ByVal hImage As Long, hCl
 Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
 #If Not ImplUseShared Then
-    Private Declare Function GetSystemTimeAsFileTime Lib "kernel32" (lpSystemTimeAsFileTime As Currency) As Long
+    Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
+    Private Declare Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #End If
 
 Private Type RECTF
@@ -708,7 +709,7 @@ Public Sub CancelMode()
 End Sub
 
 Friend Sub frTimer()
-    pvAnimateState DateTimer - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
+    pvAnimateState TimerEx - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
 End Sub
 
 '== private ==============================================================
@@ -1153,7 +1154,7 @@ Private Function pvStartAnimation(ByVal sngDuration As Single, ByVal sngOpacity1
     m_hPrevBitmap = m_hBitmap
     m_hBitmap = hNewBitmap
     hNewBitmap = 0
-    m_dblAnimationStart = DateTimer
+    m_dblAnimationStart = TimerEx
     m_dblAnimationEnd = m_dblAnimationStart + sngDuration
     m_sngAnimationOpacity1 = sngOpacity1
     m_sngAnimationOpacity2 = sngOpacity2
@@ -1340,12 +1341,15 @@ EH:
 End Function
 
 #If Not ImplUseShared Then
-Private Property Get DateTimer() As Double
-    Dim cDateTime       As Currency
+Public Property Get TimerEx() As Double
+    Dim cFreq           As Currency
+    Dim cValue          As Currency
     
-    Call GetSystemTimeAsFileTime(cDateTime)
-    DateTimer = CDbl(cDateTime - 9435304800000@) / 1000#
+    Call QueryPerformanceFrequency(cFreq)
+    Call QueryPerformanceCounter(cValue)
+    TimerEx = cValue / cFreq
 End Property
+
 
 Private Function HM2Pix(ByVal Value As Double) As Long
    HM2Pix = Int(Value * 1440 / 2540 / Screen.TwipsPerPixelX + 0.5)
