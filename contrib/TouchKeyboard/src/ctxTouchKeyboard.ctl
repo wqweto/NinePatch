@@ -65,18 +65,12 @@ Event RegisterCancelMode(oCtl As Object, Handled As Boolean)
 '=========================================================================
 
 Private Const UnitPixel                     As Long = 2
-'--- colors
-Private Const Transparent                   As Long = &HFFFFFF
 '--- for GdipCreateBitmapFromScan0
 Private Const PixelFormat32bppARGB          As Long = &H26200A
 '--- for GdipSetCompositingMode
 Private Const CompositingModeSourceCopy     As Long = 1
-'--- for GdipCreatePath
-Private Const FillModeAlternate             As Long = 0
-'--- for GdipSetPenDashStyle
-Private Const DashStyleSolid                As Long = 0
-'--- for GdipSetSmoothingMode
-Private Const SmoothingModeAntiAlias        As Long = 4
+'--- GDI+ colors
+Private Const Transparent                   As Long = &HFFFFFF
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
@@ -88,9 +82,7 @@ Private Declare Function GdipGetImageGraphicsContext Lib "gdiplus" (ByVal hImage
 Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, ByVal Scan0 As Long, hBitmap As Long) As Long
 Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal hImage As Long) As Long
 Private Declare Function GdipDrawImageRectRect Lib "gdiplus" (ByVal hGraphics As Long, ByVal hImage As Long, ByVal dstX As Single, ByVal dstY As Single, ByVal dstWidth As Single, ByVal dstHeight As Single, ByVal srcX As Single, ByVal srcY As Single, ByVal srcWidth As Single, ByVal srcHeight As Single, Optional ByVal srcUnit As Long = UnitPixel, Optional ByVal hImageAttributes As Long, Optional ByVal pfnCallback As Long, Optional ByVal lCallbackData As Long) As Long
-Private Declare Function GdipBitmapSetPixel Lib "gdiplus" (ByVal hBitmap As Long, ByVal lX As Long, ByVal lY As Long, ByVal lColor As Long) As Long
 Private Declare Function GdipFillRectangleI Lib "gdiplus" (ByVal hGraphics As Long, ByVal hBrush As Long, ByVal lX As Long, ByVal lY As Long, ByVal lWidth As Long, ByVal lHeight As Long) As Long
-Private Declare Function GdipGraphicsClear Lib "gdiplus" (ByVal hGraphics As Long, ByVal lColor As Long) As Long
 Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal lArgb As Long, hBrush As Long) As Long
 Private Declare Function GdipSetCompositingMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal lCompositingMode As Long) As Long
 Private Declare Function GdipCreateBitmapFromHBITMAP Lib "gdiplus" (ByVal hBmp As Long, ByVal hPal As Long, hBtmap As Long) As Long
@@ -98,18 +90,6 @@ Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Lon
 Private Declare Function GdipCreateImageAttributes Lib "gdiplus" (hImgAttr As Long) As Long
 Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal hImgAttr As Long, ByVal lAdjustType As Long, ByVal fAdjustEnabled As Long, clrMatrix As Any, grayMatrix As Any, ByVal lFlags As Long) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal hImgAttr As Long) As Long
-Private Declare Function GdipSetSmoothingMode Lib "gdiplus" (ByVal hGraphics As Long, ByVal lSmoothingMd As Long) As Long
-Private Declare Function GdipCreatePen1 Lib "gdiplus" (ByVal lColor As Long, ByVal sngWidth As Single, ByVal lUnit As Long, hPen As Long) As Long
-Private Declare Function GdipSetPenDashStyle Lib "gdiplus" (ByVal hPen As Long, ByVal dStyle As Long) As Long
-Private Declare Function GdipCreatePath Lib "gdiplus" (ByVal lBrushmode As Long, hPath As Long) As Long
-Private Declare Function GdipAddPathArc Lib "gdiplus" (ByVal hPath As Long, ByVal sngX As Single, ByVal sngY As Single, ByVal sngWidth As Single, ByVal sngHeight As Single, ByVal sngStartAngle As Single, ByVal sngSweepAngle As Single) As Long
-Private Declare Function GdipClosePathFigure Lib "gdiplus" (ByVal hPath As Long) As Long
-Private Declare Function GdipFillPath Lib "gdiplus" (ByVal hGraphics As Long, ByVal hBrush As Long, ByVal hPath As Long) As Long
-Private Declare Function GdipDrawPath Lib "gdiplus" (ByVal hGraphics As Long, ByVal pen As Long, ByVal hPath As Long) As Long
-Private Declare Function GdipDeletePen Lib "gdiplus" (ByVal hPen As Long) As Long
-Private Declare Function GdipDeletePath Lib "gdiplus" (ByVal hPath As Long) As Long
-Private Declare Function GdipBeginContainer2 Lib "gdiplus" (ByVal hGraphics As Long, hState As Long) As Long
-Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long, ByVal hState As Long) As Long
 Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, ByVal lStrPtr As Long, ByVal lLength As Long, ByVal hFont As Long, uRect As RECTF, ByVal hStringFormat As Long, ByVal hBrush As Long) As Long
 
 Private Type RECTF
@@ -143,20 +123,6 @@ Private m_hAwesomeRegular       As Long
 Private m_hAwesomeColRegular    As Long
 Private m_hAwesomeSolid         As Long
 Private m_hAwesomeColSolid      As Long
-
-Private Type UcsRgbQuad
-    R                   As Byte
-    G                   As Byte
-    B                   As Byte
-    A                   As Byte
-End Type
-
-Private Type UcsHsbColor
-    Hue                 As Single
-    Sat                 As Single
-    Bri                 As Single
-    A                   As Byte
-End Type
 
 '=========================================================================
 ' Error handling
@@ -230,7 +196,7 @@ End Property
 '=========================================================================
 
 Public Sub RegisterCancelMode(oCtl As Object)
-    pvRegisterCancelMode Me
+    pvParentRegisterCancelMode Me
     If Not m_oCtlCancelMode Is Nothing And Not m_oCtlCancelMode Is oCtl Then
         m_oCtlCancelMode.CancelMode
     End If
@@ -361,16 +327,16 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
             hHoverBitmap = m_cButtonImageCache.Item("H" & Hex(clrBack))
             hPressedBitmap = m_cButtonImageCache.Item("P" & Hex(clrBack))
         Else
-            clrBorder = pvAdjustColor(clrBack, AdjustBri:=0.3, AdjustAlpha:=-0.5)
-            clrShadow = pvAdjustColor(clrBack, AdjustBri:=-0.8, AdjustAlpha:=-0.75)
-            If Not pvPrepareButtonBitmap(6, 5, clrBorder, clrBack, clrShadow, hNormalBitmap) Then
+            clrBorder = GdipAdjustColor(clrBack, AdjustBri:=0.3, AdjustAlpha:=-0.5)
+            clrShadow = GdipAdjustColor(clrBack, AdjustBri:=-0.8, AdjustAlpha:=-0.75)
+            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, clrBack, clrShadow, hNormalBitmap) Then
                 GoTo QH
             End If
-            If Not pvPrepareButtonBitmap(6, 5, clrBorder, pvAdjustColor(clrBack, AdjustBri:=-0.2), clrShadow, hHoverBitmap) Then
+            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=-0.2), clrShadow, hHoverBitmap) Then
                 GoTo QH
             End If
-            clrShadow = pvAdjustColor(clrShadow, AdjustAlpha:=-0.75)
-            If Not pvPrepareButtonBitmap(6, 5, clrBorder, pvAdjustColor(clrBack, AdjustBri:=0.25, AdjustSat:=-0.25), clrShadow, hPressedBitmap) Then
+            clrShadow = GdipAdjustColor(clrShadow, AdjustAlpha:=-0.75)
+            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=0.25, AdjustSat:=-0.25), clrShadow, hPressedBitmap) Then
                 GoTo QH
             End If
             m_cButtonImageCache.Add hNormalBitmap, "N" & Hex(clrBack)
@@ -394,106 +360,6 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
 QH:
     Exit Function
 EH:
-End Function
-
-Private Function pvPrepareButtonBitmap( _
-            ByVal sngRadius As Single, _
-            ByVal sngBlur As Single, _
-            ByVal clrPen As Long, _
-            ByVal clrBack As Long, _
-            ByVal clrShadow As Long, _
-            hBitmap As Long) As Boolean
-    Const FUNC_NAME     As String = "pvPrepareButtonBitmap"
-    Const SHADOW_OFFSET As Single = 1
-    Const CLR_WHITE     As Long = &HFFFFFFFF
-    Const CLR_BLACK     As Long = &HFF000000
-    Dim lIdx            As Long
-    Dim lRoundWidth     As Long
-    Dim lWidth          As Long
-    Dim hNewBitmap      As Long
-    Dim hDropShadow     As Long
-    Dim hGraphics       As Long
-    Dim hBrush          As Long
-    
-    On Error GoTo EH
-    lRoundWidth = Ceil(sngRadius) + 1 + Ceil(sngRadius)
-    lWidth = 1 + Ceil(sngBlur) + lRoundWidth + Ceil(SHADOW_OFFSET) + Ceil(sngBlur) + 1
-    If GdipCreateBitmapFromScan0(lWidth, lWidth, lWidth * 4, PixelFormat32bppARGB, 0, hNewBitmap) <> 0 Then
-        GoTo QH
-    End If
-    If GdipCreateBitmapFromScan0(lWidth, lWidth, lWidth * 4, PixelFormat32bppARGB, 0, hDropShadow) <> 0 Then
-        GoTo QH
-    End If
-    If GdipGetImageGraphicsContext(hDropShadow, hGraphics) <> 0 Then
-        GoTo QH
-    End If
-    If GdipGraphicsClear(hGraphics, &H1000000 Or (clrShadow And &HFFFFFF)) <> 0 Then
-        GoTo QH
-    End If
-    If Not pvDrawRoundedRectangle(hGraphics, 1 + Ceil(sngBlur) + SHADOW_OFFSET / 2, 1 + Ceil(sngBlur) + SHADOW_OFFSET, _
-            lRoundWidth, lRoundWidth, sngRadius, clrShadow, clrBack:=clrShadow) Then
-        GoTo QH
-    End If
-    If Not GdipBlurBitmap(hDropShadow, sngBlur) Then
-        GoTo QH
-    End If
-    If hGraphics <> 0 Then
-        Call GdipDeleteGraphics(hGraphics)
-        hGraphics = 0
-    End If
-    If GdipGetImageGraphicsContext(hNewBitmap, hGraphics) <> 0 Then
-        GoTo QH
-    End If
-    For lIdx = 1 To 2
-        If GdipDrawImageRectRect(hGraphics, hDropShadow, 0, 0, lWidth, lWidth, 0, 0, lWidth, lWidth) <> 0 Then
-            GoTo QH
-        End If
-    Next
-    If Not pvDrawRoundedRectangle(hGraphics, 1 + Ceil(sngBlur), 1 + Ceil(sngBlur), lRoundWidth, lRoundWidth, sngRadius, clrPen, clrBack:=clrBack) Then
-        GoTo QH
-    End If
-    '--- draw nine-patch markers
-    If GdipCreateSolidFill(CLR_WHITE, hBrush) <> 0 Then
-        GoTo QH
-    End If
-    Call GdipFillRectangleI(hGraphics, hBrush, 0, 0, lWidth, 1)
-    Call GdipFillRectangleI(hGraphics, hBrush, 0, lWidth - 1, lWidth, 1)
-    Call GdipFillRectangleI(hGraphics, hBrush, lWidth - 1, 0, 1, lWidth)
-    Call GdipFillRectangleI(hGraphics, hBrush, 0, 0, 1, lWidth)
-    lIdx = 1 + Ceil(sngBlur) + Ceil(sngRadius)
-    Call GdipDeleteBrush(hBrush)
-    If GdipCreateSolidFill(CLR_BLACK, hBrush) <> 0 Then
-        GoTo QH
-    End If
-    Call GdipBitmapSetPixel(hNewBitmap, lIdx, 0, CLR_BLACK)
-    Call GdipBitmapSetPixel(hNewBitmap, 0, lIdx, CLR_BLACK)
-    Call GdipFillRectangleI(hGraphics, hBrush, lWidth - 1, 1, 1, lWidth - 2)
-    Call GdipFillRectangleI(hGraphics, hBrush, 1, lWidth - 1, lWidth - 2, 1)
-    '--- commit
-    If hBitmap <> 0 Then
-        Call GdipDisposeImage(hBitmap)
-    End If
-    hBitmap = hNewBitmap
-    hNewBitmap = 0
-    '--- success
-    pvPrepareButtonBitmap = True
-QH:
-    If hBrush <> 0 Then
-        Call GdipDeleteBrush(hBrush)
-    End If
-    If hGraphics <> 0 Then
-        Call GdipDeleteGraphics(hGraphics)
-    End If
-    If hNewBitmap <> 0 Then
-        Call GdipDisposeImage(hNewBitmap)
-    End If
-    If hDropShadow <> 0 Then
-        Call GdipDisposeImage(hDropShadow)
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume QH
 End Function
 
 Private Function pvPrepareForeground(hFore As Long) As Boolean
@@ -607,96 +473,7 @@ Private Sub pvPrepareFontAwesome()
     End If
 End Sub
 
-Private Function pvDrawRoundedRectangle( _
-            ByVal hGraphics As Long, _
-            ByVal sngLeft As Single, _
-            ByVal sngTop As Single, _
-            ByVal sngWidth As Single, _
-            ByVal sngHeight As Single, _
-            ByVal sngRadius As Single, _
-            Optional ByVal clrPen As Long = Transparent, _
-            Optional ByVal PenWidth As Long = 1, _
-            Optional ByVal DashStyle As Long = DashStyleSolid, _
-            Optional ByVal clrBack As Long = Transparent) As Boolean
-    Const FUNC_NAME     As String = "pvDrawRoundedRectangle"
-    Dim hState          As Long
-    Dim hPen            As Long
-    Dim hPath           As Long
-    Dim hBrush          As Long
-    Dim sngDiam         As Single
-    
-    On Error GoTo EH
-    sngDiam = sngRadius + sngRadius
-    '--- setup graphics
-    If GdipBeginContainer2(hGraphics, hState) <> 0 Then
-        GoTo QH
-    End If
-    If GdipSetSmoothingMode(hGraphics, SmoothingModeAntiAlias) <> 0 Then
-        GoTo QH
-    End If
-    '--- setup path
-    If GdipCreatePath(FillModeAlternate, hPath) <> 0 Then
-        GoTo QH
-    End If
-    If GdipAddPathArc(hPath, sngLeft + sngWidth - sngDiam, sngTop, sngDiam, sngDiam, 270, 90) <> 0 Then
-        GoTo QH
-    End If
-    If GdipAddPathArc(hPath, sngLeft + sngWidth - sngDiam, sngTop + sngHeight - sngDiam, sngDiam, sngDiam, 0, 90) <> 0 Then
-        GoTo QH
-    End If
-    If GdipAddPathArc(hPath, sngLeft, sngTop + sngHeight - sngDiam, sngDiam, sngDiam, 90, 90) <> 0 Then
-        GoTo QH
-    End If
-    If GdipAddPathArc(hPath, sngLeft, sngTop, sngDiam, sngDiam, 180, 90) <> 0 Then
-        GoTo QH
-    End If
-    If GdipClosePathFigure(hPath) <> 0 Then
-        GoTo QH
-    End If
-    '--- setup brush
-    If clrBack <> Transparent Then
-        If GdipCreateSolidFill(clrBack, hBrush) <> 0 Then
-            GoTo QH
-        End If
-        Call GdipFillPath(hGraphics, hBrush, hPath)
-    End If
-    '--- setup pen
-    If clrPen <> Transparent Then
-        If GdipCreatePen1(clrPen, PenWidth, UnitPixel, hPen) <> 0 Then
-            GoTo QH
-        End If
-        If GdipSetPenDashStyle(hPen, DashStyle) <> 0 Then
-            GoTo QH
-        End If
-        Call GdipDrawPath(hGraphics, hPen, hPath)
-    End If
-    If GdipSetSmoothingMode(hGraphics, SmoothingModeAntiAlias) <> 0 Then
-        GoTo QH
-    End If
-    '--- success
-    pvDrawRoundedRectangle = True
-QH:
-    On Error Resume Next
-    '--- cleanup
-    If hPen <> 0 Then
-        Call GdipDeletePen(hPen)
-    End If
-    If hBrush <> 0 Then
-        Call GdipDeleteBrush(hBrush)
-    End If
-    If hPath <> 0 Then
-        Call GdipDeletePath(hPath)
-    End If
-    If hState <> 0 Then
-        Call GdipEndContainer(hGraphics, hState)
-    End If
-    Exit Function
-EH:
-    PrintError FUNC_NAME
-    Resume QH
-End Function
-
-Private Function pvRegisterCancelMode(oCtl As Object) As Boolean
+Private Function pvParentRegisterCancelMode(oCtl As Object) As Boolean
     Dim bHandled        As Boolean
     
     RaiseEvent RegisterCancelMode(oCtl, bHandled)
@@ -706,116 +483,8 @@ Private Function pvRegisterCancelMode(oCtl As Object) As Boolean
         On Error GoTo 0
     End If
     '--- success
-    pvRegisterCancelMode = True
+    pvParentRegisterCancelMode = True
 QH:
-End Function
-
-Private Function pvAdjustColor( _
-            ByVal clrValue As Long, _
-            Optional ByVal AdjustBri As Double, _
-            Optional ByVal AdjustSat As Double, _
-            Optional ByVal AdjustAlpha As Double) As Long
-    Dim hsbColor        As UcsHsbColor
-    
-    hsbColor = pvRGBToHSB(clrValue)
-    If AdjustBri > 0 Then
-        hsbColor.Bri = 1 - (1 - hsbColor.Bri) * (1 - AdjustBri)
-    Else
-        hsbColor.Bri = hsbColor.Bri * (1 + AdjustBri)
-    End If
-    If AdjustSat > 0 Then
-        hsbColor.Sat = 1 - (1 - hsbColor.Sat) * (1 - AdjustSat)
-    Else
-        hsbColor.Sat = hsbColor.Sat * (1 + AdjustSat)
-    End If
-    If AdjustAlpha > 0 Then
-        hsbColor.A = 1 - (1 - hsbColor.A) * (1 - AdjustAlpha)
-    Else
-        hsbColor.A = hsbColor.A * (1 + AdjustAlpha)
-    End If
-    pvAdjustColor = pvHSBToRGB(hsbColor)
-End Function
-
-Private Function pvHSBToRGB(hsbColor As UcsHsbColor) As Long
-    Dim lMax            As Long
-    Dim lMid            As Long
-    Dim lMin            As Long
-    Dim sngDelta        As Single
-    Dim rgbColor        As UcsRgbQuad
-    Dim lHue            As Long
-
-    lMax = hsbColor.Bri * 255
-    lMin = (1 - hsbColor.Sat) * CSng(lMax)
-    sngDelta = CSng(lMax - lMin) / 60
-    With rgbColor
-        lHue = hsbColor.Hue * 360
-        Select Case lHue
-        Case 0 To 60
-            lMid = (lHue - 0) * sngDelta + lMin
-            .R = lMax: .G = lMid: .B = lMin
-        Case 60 To 120
-            lMid = -(lHue - 120) * sngDelta + lMin
-            .R = lMid: .G = lMax: .B = lMin
-        Case 120 To 180
-            lMid = (lHue - 120) * sngDelta + lMin
-            .R = lMin: .G = lMax: .B = lMid
-        Case 180 To 240
-            lMid = -(lHue - 240) * sngDelta + lMin
-            .R = lMin: .G = lMid: .B = lMax
-        Case 240 To 300
-            lMid = (lHue - 240) * sngDelta + lMin
-            .R = lMid: .G = lMin: .B = lMax
-        Case 300 To 360
-            lMid = -(lHue - 360) * sngDelta + lMin
-            .R = lMax: .G = lMin: .B = lMid
-        End Select
-        .A = hsbColor.A
-    End With
-    Call CopyMemory(pvHSBToRGB, rgbColor, 4)
-End Function
-
-Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
-    Dim rgbColor        As UcsRgbQuad
-    Dim lMin            As Long
-    Dim lMax            As Long
-    Dim sngDelta        As Single
-  
-    Call CopyMemory(rgbColor, clrValue, 4)
-    With rgbColor
-        If .R > .G Then
-            lMax = .R: lMin = .G
-        Else
-            lMax = .G: lMin = .R
-        End If
-        If .B > lMax Then
-            lMax = .B
-        ElseIf .B < lMin Then
-            lMin = .B
-        End If
-        pvRGBToHSB.Bri = CSng(lMax) / 255
-        sngDelta = lMax - lMin
-        If sngDelta > 0 Then
-            '--- note: sngDelta > 0 => lMax > 0
-            pvRGBToHSB.Sat = sngDelta / lMax
-            Select Case lMax
-            Case .R
-                pvRGBToHSB.Hue = (0 + (CSng(.G) - .B) / sngDelta) / 6
-            Case .G
-                pvRGBToHSB.Hue = (2 + (CSng(.B) - .R) / sngDelta) / 6
-            Case Else
-                pvRGBToHSB.Hue = (4 + (CSng(.R) - .G) / sngDelta) / 6
-            End Select
-            If pvRGBToHSB.Hue < 0 Then
-                pvRGBToHSB.Hue = pvRGBToHSB.Hue + 1
-            End If
-        End If
-        pvRGBToHSB.A = .A
-        Debug.Assert pvHSBToRGB(pvRGBToHSB) = clrValue
-    End With
-End Function
-
-Private Function Ceil(ByVal Value As Double) As Double
-    Ceil = -Int(CStr(-Value))
 End Function
 
 Private Function IsCompileTime(Extender As Object) As Boolean
@@ -948,13 +617,37 @@ QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
+    Resume Next
+End Sub
+
+Private Sub btn_RegisterCancelMode(Index As Integer, oCtl As Object, Handled As Boolean)
+    Const FUNC_NAME     As String = "btn_RegisterCancelMode"
+    
+    On Error GoTo EH
+    pvParentRegisterCancelMode Me
+    If Not m_oCtlCancelMode Is Nothing And Not m_oCtlCancelMode Is oCtl Then
+        m_oCtlCancelMode.CancelMode
+    End If
+    Set m_oCtlCancelMode = oCtl
+    Handled = True
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub m_oFont_FontChanged(ByVal PropertyName As String)
+    Const FUNC_NAME     As String = "m_oFont_FontChanged"
+    
+    On Error GoTo EH
     pvLoadLayout m_sLayout
     pvSizeLayout
     pvPrepareFontAwesome
     PropertyChanged
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 '=========================================================================
