@@ -57,7 +57,9 @@ Private Const STR_MODULE_NAME As String = "ctxTouchKeyboard"
 '=========================================================================
 
 Event ButtonClick(ByVal Index As Long)
-Event ButtonMouseDown(ByVal Index As Long)
+Event ButtonMouseDown(ByVal Index As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
+Event ButtonMouseMove(ByVal Index As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
+Event ButtonMouseUp(ByVal Index As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
 Event RegisterCancelMode(oCtl As Object, Handled As Boolean)
 
 '=========================================================================
@@ -74,7 +76,7 @@ Private Const Transparent                   As Long = &HFFFFFF
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
+'Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
@@ -109,11 +111,13 @@ Private Const DEF_LAYOUT1           As String = "q w e r t y u i o p <=|1.25|D "
                                                 "?!123|3|D|N _|6 ?!123|1.25|D keyb||D"
 Private Const DEF_FORECOLOR         As Long = vbWindowBackground
 Private Const DEF_ENABLED           As Boolean = True
+Private Const DEF_USEFOREBITMAP     As Boolean = True
 
 Private m_clrFore               As OLE_COLOR
 Private WithEvents m_oFont      As StdFont
 Attribute m_oFont.VB_VarHelpID = -1
 Private m_sLayout               As String
+Private m_bUseForeBitmap        As Boolean
 '--- run-time
 Private m_lButtonCurrent        As Long
 Private m_cButtonRows()         As Collection
@@ -155,7 +159,7 @@ Private Function PrintError(sFunction As String) As VbMsgBoxResult
 #If ImplUseShared Then
     PopPrintError sFunction, MODULE_NAME, PushError
 #Else
-    Debug.Print "Critical error: " & Err.Description & " [" & MODULE_NAME & "." & sFunction & "]", Timer
+    Debug.Print "Critical error: " & Err.Description & " [" & STR_MODULE_NAME & "." & sFunction & "]", Timer
 #End If
 End Function
 
@@ -192,6 +196,7 @@ Property Set Font(oValue As StdFont)
         pvLoadLayout m_sLayout
         pvSizeLayout
         pvPrepareFontAwesome
+        Repaint
         PropertyChanged
     End If
 End Property
@@ -218,8 +223,27 @@ End Property
 Property Let Enabled(ByVal bValue As Boolean)
     If UserControl.Enabled <> bValue Then
         UserControl.Enabled = bValue
+        Repaint
+        PropertyChanged
     End If
-    PropertyChanged
+End Property
+
+Property Get UseForeBitmap() As Boolean
+    UseForeBitmap = m_bUseForeBitmap
+End Property
+
+Property Let UseForeBitmap(ByVal bValue As Boolean)
+    If m_bUseForeBitmap <> bValue Then
+        m_bUseForeBitmap = bValue
+        If bValue Then
+            pvPrepareForeground m_hForeBitmap
+        ElseIf m_hForeBitmap <> 0 Then
+            Call GdipDisposeImage(m_hForeBitmap)
+            m_hForeBitmap = 0
+        End If
+        Repaint
+        PropertyChanged
+    End If
 End Property
 
 '= run-time ==============================================================
@@ -251,10 +275,19 @@ Public Sub CancelMode()
     End If
 End Sub
 
+Public Sub Refresh()
+    UserControl.Refresh
+End Sub
+
 Public Sub Repaint()
+    Dim lIdx            As Long
+    
     If m_bShown Then
+        For lIdx = 1 To m_lButtonCurrent
+            btn(lIdx).Repaint
+        Next
         UserControl.Refresh
-        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
+'        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
 End Sub
 
@@ -572,7 +605,7 @@ Private Function At(Data As Variant, ByVal Index As Long, Optional Default As St
 RH:
 End Function
 
-Public Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
+Private Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
     AlignTwipsToPix = Int(dblTwips / Screen.TwipsPerPixelX + 0.5) * Screen.TwipsPerPixelX
 End Function
 
@@ -587,7 +620,15 @@ Private Sub btn_Click(Index As Integer)
 End Sub
 
 Private Sub btn_MouseDown(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
-    RaiseEvent ButtonMouseDown(Index)
+    RaiseEvent ButtonMouseDown(Index, Button, Shift, X, Y)
+End Sub
+
+Private Sub btn_MouseMove(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
+    RaiseEvent ButtonMouseMove(Index, Button, Shift, X, Y)
+End Sub
+
+Private Sub btn_MouseUp(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
+    RaiseEvent ButtonMouseUp(Index, Button, Shift, X, Y)
 End Sub
 
 Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
@@ -605,9 +646,6 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
     Dim bShift          As Boolean
     
     On Error GoTo EH
-    If m_hForeBitmap = 0 Then
-        GoTo QH
-    End If
     With btn(Index)
         lLeft = .Left \ Screen.TwipsPerPixelX
         lTop = .Top \ Screen.TwipsPerPixelY
@@ -645,8 +683,10 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
             Caption = vbNullString
         End Select
     End If
-    If GdipDrawImageRectRect(hGraphics, m_hForeBitmap, 0, 0, lWidth, lHeight, lLeft, lTop, lWidth, lHeight) <> 0 Then
-        GoTo QH
+    If m_hForeBitmap <> 0 Then
+        If GdipDrawImageRectRect(hGraphics, m_hForeBitmap, 0, 0, lWidth, lHeight, lLeft, lTop, lWidth, lHeight) <> 0 Then
+            GoTo QH
+        End If
     End If
 QH:
     If hStringFormat <> 0 Then
@@ -714,6 +754,7 @@ Private Sub UserControl_InitProperties()
     Set Font = Ambient.Font
     Layout = DEF_LAYOUT1
     Enabled = DEF_ENABLED
+    UseForeBitmap = DEF_USEFOREBITMAP
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
     #If DebugMode Then
@@ -741,6 +782,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         pvPrepareFontAwesome
         Layout = .ReadProperty("Layout", DEF_LAYOUT1)
         Enabled = .ReadProperty("Enabled", DEF_ENABLED)
+        UseForeBitmap = .ReadProperty("UseForeBitmap", DEF_USEFOREBITMAP)
     End With
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
@@ -763,6 +805,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("Font", Font, Ambient.Font)
         Call .WriteProperty("Layout", Layout, DEF_LAYOUT1)
         Call .WriteProperty("Enabled", Enabled, DEF_ENABLED)
+        Call .WriteProperty("UseForeBitmap", UseForeBitmap, DEF_USEFOREBITMAP)
     End With
     Exit Sub
 EH:
@@ -774,7 +817,9 @@ Private Sub UserControl_Resize()
     Const FUNC_NAME     As String = "UserControl_Resize"
     
     On Error GoTo EH
-    pvPrepareForeground m_hForeBitmap
+    If m_bUseForeBitmap Then
+        pvPrepareForeground m_hForeBitmap
+    End If
     pvSizeLayout
     Repaint
     Exit Sub
@@ -841,6 +886,10 @@ Private Sub UserControl_Terminate()
     If m_hAwesomeColSolid <> 0 Then
         Call GdipDeletePrivateFontCollection(m_hAwesomeColSolid)
         m_hAwesomeColSolid = 0
+    End If
+    If m_hForeBitmap <> 0 Then
+        Call GdipDisposeImage(m_hForeBitmap)
+        m_hForeBitmap = 0
     End If
     #If DebugMode Then
         DebugInstanceTerm MODULE_NAME, m_sDebugID
