@@ -563,9 +563,9 @@ End Function
 
 Public Function GdipAdjustColor( _
             ByVal clrValue As Long, _
-            Optional ByVal AdjustBri As Double, _
-            Optional ByVal AdjustSat As Double, _
-            Optional ByVal AdjustAlpha As Double) As Long
+            Optional ByVal AdjustBri As Single, _
+            Optional ByVal AdjustSat As Single, _
+            Optional ByVal AdjustAlpha As Single) As Long
     Dim hsbColor        As UcsHsbColor
     
     hsbColor = pvRGBToHSB(clrValue)
