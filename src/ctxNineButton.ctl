@@ -1899,7 +1899,11 @@ Private Function pvMergeBitmap(ByVal hDstBitmap As Long, ByVal hSrcBitmap As Lon
     End With
     Call CopyMemory(ByVal ArrPtr(baSrc), VarPtr(uSrcArray), 4)
     For lIdx = 0 To UBound(baDst)
-        lG = (baDst(lIdx) * lDstAlpha + baSrc(lIdx) * lSrcAlpha) \ 255
+        If lIdx <= UBound(baSrc) Then
+            lG = (baDst(lIdx) * lDstAlpha + baSrc(lIdx) * lSrcAlpha) \ 255
+        Else
+            lG = baDst(lIdx)
+        End If
         If lG > 255 Then
             lG = 255
         ElseIf lG < 0 Then
