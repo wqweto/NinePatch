@@ -6,6 +6,7 @@ Module=mdTouchKeyboard; ..\src\mdTouchKeyboard.bas
 UserControl=..\src\ctxTouchKeyboard.ctl
 Form=Form1.frm
 UserControl=..\src\ctxTouchButton.ctl
+Module=Module1; Module1.bas
 Startup="Form1"
 HelpFile=""
 Title="Project1"

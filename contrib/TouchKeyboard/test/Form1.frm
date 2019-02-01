@@ -144,12 +144,6 @@ Public Sub RegisterCancelMode(oCtl As Object)
     Set m_oCtlCancelMode = oCtl
 End Sub
 
-Public Sub SendKeys(sText As String, Optional ByVal bWait As Boolean)
-   With CreateObject("WScript.Shell")
-        .SendKeys sText, bWait
-   End With
-End Sub
-
 Private Sub ctxTouchKeyboard1_ButtonClick(ByVal Index As Long)
     Dim sText           As String
     
@@ -197,13 +191,7 @@ Private Sub ctxTouchKeyboard1_ButtonClick(ByVal Index As Long)
             sText = ctxTouchKeyboard1.ButtonCaption(Index)
         End If
     End Select
-    If LenB(sText) <> 0 Then
-        SendKeys sText
-        If LenB(m_sNextLayout) <> 0 Then
-            ctxTouchKeyboard1.Layout = m_sNextLayout
-            m_sNextLayout = vbNullString
-        End If
-    End If
+    pvSendKeys ctxTouchKeyboard1, sText
 End Sub
 
 Private Sub ctxTouchKeyboard2_ButtonClick(ByVal Index As Long)
@@ -219,7 +207,7 @@ Private Sub ctxTouchKeyboard2_ButtonClick(ByVal Index As Long)
             sText = ctxTouchKeyboard2.ButtonCaption(Index)
         End If
     End Select
-    SendKeys sText
+    pvSendKeys ctxTouchKeyboard1, sText
 End Sub
 
 Private Sub Form_Load()
@@ -239,3 +227,19 @@ Private Sub Form_MouseMove(Button As Integer, Shift As Integer, X As Single, Y A
     End If
 End Sub
 
+Private Sub pvSendKeys(oCtl As ctxTouchKeyboard, sText As String)
+    If LenB(sText) <> 0 Then
+        If sText Like "[à-ÿÀ-ß]" Then
+            KeybLanguage = "bg"
+        ElseIf sText Like "[a-zA-Z]" Then
+            KeybLanguage = "en"
+        End If
+        With CreateObject("WScript.Shell")
+            .SendKeys sText, False
+        End With
+        If LenB(m_sNextLayout) <> 0 Then
+            oCtl.Layout = m_sNextLayout
+            m_sNextLayout = vbNullString
+        End If
+    End If
+End Sub
