@@ -51,6 +51,7 @@ DefObj A-Z
 Private Const STR_MODULE_NAME As String = "ctxTouchKeyboard"
 
 #Const ImplUseShared = NPPNG_USE_SHARED <> 0
+#Const ImplHasTimers = True
 
 '=========================================================================
 ' Public Events
@@ -73,10 +74,14 @@ Private Const PixelFormat32bppARGB          As Long = &H26200A
 Private Const CompositingModeSourceCopy     As Long = 1
 '--- GDI+ colors
 Private Const Transparent                   As Long = &HFFFFFF
+'--- for SystemParametersInfo
+Private Const SPI_GETKEYBOARDSPEED          As Long = 10
+Private Const SPI_GETKEYBOARDDELAY          As Long = 22
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
 'Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
+Private Declare Function SystemParametersInfo Lib "user32" Alias "SystemParametersInfoA" (ByVal uAction As Long, ByVal uParam As Long, ByRef lpvParam As Any, ByVal fuWinIni As Long) As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
@@ -112,12 +117,19 @@ Private Const DEF_LAYOUT1           As String = "q w e r t y u i o p <=|1.25|D "
 Private Const DEF_FORECOLOR         As Long = vbWindowBackground
 Private Const DEF_ENABLED           As Boolean = True
 Private Const DEF_USEFOREBITMAP     As Boolean = True
+Private Const DEF_KEYSALLOWREPEAT   As String = "<="
 
+#If ImplHasTimers Then
+    Private m_uTimer            As FireOnceTimerData
+#End If
+Private m_lRepeatIndex          As Long
+'--- design-time
 Private m_clrFore               As OLE_COLOR
 Private WithEvents m_oFont      As StdFont
 Attribute m_oFont.VB_VarHelpID = -1
 Private m_sLayout               As String
 Private m_bUseForeBitmap        As Boolean
+Private m_sKeysAllowRepeat      As String
 '--- run-time
 Private m_lButtonCurrent        As Long
 Private m_cButtonRows()         As Collection
@@ -246,6 +258,14 @@ Property Let UseForeBitmap(ByVal bValue As Boolean)
     End If
 End Property
 
+Property Get KeysAllowRepeat() As String
+    KeysAllowRepeat = m_sKeysAllowRepeat
+End Property
+
+Property Let KeysAllowRepeat(sValue As String)
+    m_sKeysAllowRepeat = sValue
+End Property
+
 '= run-time ==============================================================
 
 Property Get ButtonCaption(ByVal Index As Long) As String
@@ -290,6 +310,25 @@ Public Sub Repaint()
 '        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
 End Sub
+
+#If ImplHasTimers Then
+Friend Sub frTimer()
+    Const FUNC_NAME     As String = "frTimer"
+    
+    On Error GoTo EH
+    If m_lRepeatIndex <> 0 Then
+        RaiseEvent ButtonClick(m_lRepeatIndex)
+        If m_lRepeatIndex <> 0 Then
+            TerminateFireOnceTimer m_uTimer
+            InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectTouchKeyboardTimerProc, pvGetKeyboardSpeed
+        End If
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Sub
+#End If
 
 '= private ===============================================================
 
@@ -594,6 +633,34 @@ Private Function AsUserControl(oObj As Object) As UserControl
     End If
 End Function
 
+Private Function pvIsRepeatKey(ByVal Index As Long) As Boolean
+    If LenB(m_sKeysAllowRepeat) <> 0 Then
+        If InStr("|" & btn.Item(Index).Caption & "|", "|" & m_sKeysAllowRepeat & "|") > 0 Then
+            pvIsRepeatKey = True
+        End If
+    End If
+End Function
+
+Private Function pvGetKeyboardDelay() As Long
+    Dim lValue          As Long
+    
+    Call SystemParametersInfo(SPI_GETKEYBOARDDELAY, 0, lValue, 0)
+    If lValue < 0 Or lValue > 3 Then
+        lValue = 0
+    End If
+    pvGetKeyboardDelay = (lValue + 1) * 250
+End Function
+
+Private Function pvGetKeyboardSpeed() As Long
+    Dim lValue          As Long
+    
+    Call SystemParametersInfo(SPI_GETKEYBOARDSPEED, 0, lValue, 0)
+    If lValue < 0 Or lValue > 29 Then
+        lValue = 29
+    End If
+    pvGetKeyboardSpeed = CSng(31 - lValue) * (400 - 1000! / 30) / 31 + 1000! / 300
+End Function
+
 #If Not ImplUseShared Then
 
 Private Function At(Data As Variant, ByVal Index As Long, Optional Default As String) As String
@@ -616,11 +683,62 @@ End Function
 '=========================================================================
 
 Private Sub btn_Click(Index As Integer)
-    RaiseEvent ButtonClick(Index)
+    Const FUNC_NAME     As String = "btn_Click"
+    
+    On Error GoTo EH
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+    #End If
+    m_lRepeatIndex = 0
+    If Not pvIsRepeatKey(Index) Then
+        RaiseEvent ButtonClick(Index)
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
+End Sub
+
+Private Sub btn_DblClick(Index As Integer)
+    Const FUNC_NAME     As String = "btn_DblClick"
+    
+    On Error GoTo EH
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+    #End If
+    m_lRepeatIndex = 0
+    If pvIsRepeatKey(Index) Then
+        RaiseEvent ButtonClick(Index)
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub btn_MouseDown(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
+    Const FUNC_NAME     As String = "btn_MouseDown"
+    
+    On Error GoTo EH
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+    #End If
+    m_lRepeatIndex = 0
     RaiseEvent ButtonMouseDown(Index, Button, Shift, X, Y)
+    If pvIsRepeatKey(Index) Then
+        RaiseEvent ButtonClick(Index)
+        m_lRepeatIndex = Index
+        If m_lRepeatIndex <> 0 Then
+            #If ImplHasTimers Then
+                TerminateFireOnceTimer m_uTimer
+                InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectTouchKeyboardTimerProc, pvGetKeyboardDelay
+            #End If
+        End If
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub btn_MouseMove(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
@@ -628,7 +746,18 @@ Private Sub btn_MouseMove(Index As Integer, Button As Integer, Shift As Integer,
 End Sub
 
 Private Sub btn_MouseUp(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)
+    Const FUNC_NAME     As String = "btn_MouseUp"
+    
+    On Error GoTo EH
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+    #End If
+    m_lRepeatIndex = 0
     RaiseEvent ButtonMouseUp(Index, Button, Shift, X, Y)
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont As Long, ByVal ButtonState As UcsNineButtonStateEnum, ClientLeft As Long, ClientTop As Long, ClientWidth As Long, ClientHeight As Long, Caption As String, ByVal hPicture As Long)
@@ -755,6 +884,7 @@ Private Sub UserControl_InitProperties()
     Layout = DEF_LAYOUT1
     Enabled = DEF_ENABLED
     UseForeBitmap = DEF_USEFOREBITMAP
+    KeysAllowRepeat = DEF_KEYSALLOWREPEAT
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
     #If DebugMode Then
@@ -783,6 +913,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         Layout = .ReadProperty("Layout", DEF_LAYOUT1)
         Enabled = .ReadProperty("Enabled", DEF_ENABLED)
         UseForeBitmap = .ReadProperty("UseForeBitmap", DEF_USEFOREBITMAP)
+        KeysAllowRepeat = .ReadProperty("KeysAllowRepeat", DEF_KEYSALLOWREPEAT)
     End With
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
@@ -806,6 +937,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("Layout", Layout, DEF_LAYOUT1)
         Call .WriteProperty("Enabled", Enabled, DEF_ENABLED)
         Call .WriteProperty("UseForeBitmap", UseForeBitmap, DEF_USEFOREBITMAP)
+        Call .WriteProperty("KeysAllowRepeat", KeysAllowRepeat, DEF_KEYSALLOWREPEAT)
     End With
     Exit Sub
 EH:
@@ -868,6 +1000,10 @@ End Sub
 Private Sub UserControl_Terminate()
     Dim vElem           As Variant
     
+    #If ImplHasTimers Then
+        TerminateFireOnceTimer m_uTimer
+    #End If
+    m_lRepeatIndex = 0
     For Each vElem In m_cButtonImageCache
         Call GdipDisposeImage(vElem)
     Next

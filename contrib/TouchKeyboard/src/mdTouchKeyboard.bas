@@ -661,7 +661,7 @@ Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
             End If
         End If
         pvRGBToHSB.A = .A
-        Debug.Assert pvHSBToRGB(pvRGBToHSB) = clrValue
+'        Debug.Assert pvHSBToRGB(pvRGBToHSB) = clrValue
     End With
 End Function
 
@@ -897,3 +897,16 @@ Public Sub RedirectTouchButtonTimerProc( _
     This.frTimer
 End Sub
 
+Public Sub RedirectTouchKeyboardTimerProc( _
+            Data As FireOnceTimerData, _
+            ByVal This As ctxTouchKeyboard, _
+            ByVal hWnd As Long, _
+            ByVal wMsg As Long, _
+            ByVal idEvent As Long, _
+            ByVal dwTime As Long)
+    #If hWnd And wMsg And dwTime Then '--- touch
+    #End If
+    Data.TimerID = idEvent
+    TerminateFireOnceTimer Data
+    This.frTimer
+End Sub
