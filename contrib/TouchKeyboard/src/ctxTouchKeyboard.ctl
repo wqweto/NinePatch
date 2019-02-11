@@ -371,15 +371,15 @@ Private Sub pvLoadLayout(sLayout As String)
             With btn(lIdx - 1)
                 Select Case IIf(lIdx = 1, "F", At(vSplit, 3))
                 Case "F"
-                    btn(lIdx).Move 0, 0, btn(0).Width, btn(0).Width
+                    MoveCtl btn(lIdx), 0, 0, btn(0).Width, btn(0).Width
                     lRow = 0
                 Case "N"
-                    btn(lIdx).Move 0, .Top + .Height, btn(0).Width, btn(0).Width
+                    MoveCtl btn(lIdx), 0, .Top + .Height, btn(0).Width, btn(0).Width
                     lRow = lRow + 1
                     ReDim Preserve m_cButtonRows(0 To lRow) As Collection
                     Set m_cButtonRows(lRow) = New Collection
                 Case Else
-                    btn(lIdx).Move .Left + .Width, .Top, btn(0).Width, btn(0).Width
+                    MoveCtl btn(lIdx), .Left + .Width, .Top, btn(0).Width, btn(0).Width
                 End Select
             End With
             With btn(lIdx)
@@ -402,8 +402,10 @@ Private Sub pvSizeLayout()
     Const FUNC_NAME     As String = "pvSizeLayout"
     Dim lIdx            As Long
     Dim vElem           As Variant
-    Dim dblLeft         As Double
+    Dim dblCurrent      As Double
     Dim dblTotal        As Double
+    Dim dblLeft         As Double
+    Dim dblTop          As Double
     
     On Error GoTo EH
     For lIdx = 0 To UBound(m_cButtonRows)
@@ -411,14 +413,14 @@ Private Sub pvSizeLayout()
         For Each vElem In m_cButtonRows(lIdx)
             dblTotal = dblTotal + vElem(1)
         Next
-        dblLeft = 0
+        dblCurrent = 0
         For Each vElem In m_cButtonRows(lIdx)
-            With btn(vElem(0))
-                .Move AlignTwipsToPix(dblLeft * ScaleWidth / dblTotal), AlignTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
-                dblLeft = dblLeft + vElem(1)
-                .Width = AlignTwipsToPix(dblLeft * ScaleWidth / dblTotal) - .Left
-                .Height = AlignTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1)) - .Top
-            End With
+            dblLeft = AlignTwipsToPix(dblCurrent * ScaleWidth / dblTotal)
+            dblTop = AlignTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
+            MoveCtl btn(vElem(0)), dblLeft, dblTop, _
+                AlignTwipsToPix((dblCurrent + vElem(1)) * ScaleWidth / dblTotal) - dblLeft, _
+                AlignTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1)) - dblTop
+            dblCurrent = dblCurrent + vElem(1)
         Next
     Next
     Exit Sub
@@ -432,6 +434,8 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
     Dim hNormalBitmap   As Long
     Dim hHoverBitmap    As Long
     Dim hPressedBitmap  As Long
+    Dim sngRadius       As Single
+    Dim sngBlur         As Single
     
     On Error GoTo EH
     If clrBack <> Transparent Then
@@ -442,14 +446,16 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
         Else
             clrBorder = GdipAdjustColor(clrBack, AdjustBri:=0.3, AdjustAlpha:=-0.5)
             clrShadow = GdipAdjustColor(clrBack, AdjustBri:=-0.8, AdjustAlpha:=-0.75)
-            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, clrBack, clrShadow, hNormalBitmap) Then
+            sngRadius = IconScale(6)
+            sngBlur = IconScale(5)
+            If Not GdipPrepareButtonBitmap(sngRadius, sngBlur, clrBorder, clrBack, clrShadow, hNormalBitmap) Then
                 GoTo QH
             End If
-            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=-0.2), clrShadow, hHoverBitmap) Then
+            If Not GdipPrepareButtonBitmap(sngRadius, sngBlur, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=-0.2), clrShadow, hHoverBitmap) Then
                 GoTo QH
             End If
             clrShadow = GdipAdjustColor(clrShadow, AdjustAlpha:=-0.75)
-            If Not GdipPrepareButtonBitmap(6, 5, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=0.25, AdjustSat:=-0.25), clrShadow, hPressedBitmap) Then
+            If Not GdipPrepareButtonBitmap(sngRadius, sngBlur, clrBorder, GdipAdjustColor(clrBack, AdjustBri:=0.25, AdjustSat:=-0.25), clrShadow, hPressedBitmap) Then
                 GoTo QH
             End If
             m_cButtonImageCache.Add hNormalBitmap, "N" & Hex(clrBack)
@@ -581,8 +587,8 @@ End Function
 
 Private Sub pvPrepareFontAwesome()
     If Not m_oFont Is Nothing Then
-        GdipPreparePrivateFont App.Path & "\fa-regular-400.ttf", m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
-        GdipPreparePrivateFont App.Path & "\fa-solid-900.ttf", m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "\fa-regular-400.ttf")), m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "\fa-solid-900.ttf")), m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
     End If
 End Sub
 
@@ -664,16 +670,46 @@ End Function
 #If Not ImplUseShared Then
 
 Private Function At(Data As Variant, ByVal Index As Long, Optional Default As String) As String
-    On Error GoTo RH
+    On Error GoTo QH
     At = Default
     If LBound(Data) <= Index And Index <= UBound(Data) Then
         At = CStr(Data(Index))
     End If
-RH:
+QH:
 End Function
 
 Private Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
     AlignTwipsToPix = Int(dblTwips / Screen.TwipsPerPixelX + 0.5) * Screen.TwipsPerPixelX
+End Function
+
+Private Function IconScale(ByVal sngSize As Single) As Long
+    Select Case Screen.TwipsPerPixelX
+    Case Is < 6.5
+        IconScale = Int(sngSize * 3)
+    Case Is < 9.5
+        IconScale = Int(sngSize * 2)
+    Case Is < 11.5
+        IconScale = Int(sngSize * 3 \ 2)
+    Case Else
+        IconScale = Int(sngSize * 1)
+    End Select
+End Function
+
+Private Sub MoveCtl(oCtl As Object, ByVal Left As Single, ByVal Top As Variant, ByVal Width As Variant, ByVal Height As Variant)
+    If 1440 \ Screen.TwipsPerPixelX = 1440 / Screen.TwipsPerPixelX Then
+        oCtl.Move Left, Top, Width, Height
+    Else
+        oCtl.Move Left + Screen.TwipsPerPixelX, Top, Width, Height
+        oCtl.Move Left
+    End If
+End Sub
+
+Private Function LocateFile(sFile As String) As String
+    LocateFile = sFile
+End Function
+
+Private Function PathCombine(sPath As String, sFile As String) As String
+    PathCombine = sPath & IIf(LenB(sPath) <> 0 And Right$(sPath, 1) <> "\" And LenB(sFile) <> 0, "\", vbNullString) & sFile
 End Function
 
 #End If ' Not ImplUseShared
@@ -1031,4 +1067,3 @@ Private Sub UserControl_Terminate()
         DebugInstanceTerm MODULE_NAME, m_sDebugID
     #End If
 End Sub
-
