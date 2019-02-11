@@ -2017,7 +2017,7 @@ Private Sub UserControl_KeyUp(KeyCode As Integer, Shift As Integer)
 End Sub
 
 Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
-    RaiseEvent MouseDown(Button, Shift, X, Y)
+    RaiseEvent MouseDown(Button, Shift, ScaleX(X, ScaleMode, vbContainerPosition), ScaleY(Y, ScaleMode, vbContainerPosition))
     pvHandleMouseDown Button, Shift, X, Y
 End Sub
 
@@ -2025,11 +2025,13 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
     Const FUNC_NAME     As String = "UserControl_MouseMove"
     
     On Error GoTo EH
-    RaiseEvent MouseMove(Button, Shift, X, Y)
-    If m_nDownButton <> Button Then
+    RaiseEvent MouseMove(Button, Shift, ScaleX(X, ScaleMode, vbContainerPosition), ScaleY(Y, ScaleMode, vbContainerPosition))
+    If m_nDownButton <> Button And Button <> 0 Then
         pvHandleMouseDown Button, Shift, X, Y
     End If
-    If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
+    If Button = 0 Then
+        pvState(ucsBstHoverPressed Or ucsBstHover) = False
+    ElseIf X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
         If Not pvState(ucsBstHover) Then
             If pvParentRegisterCancelMode(Me) Then
                 pvState(ucsBstHover) = True
@@ -2050,11 +2052,11 @@ Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single
     Const FUNC_NAME     As String = "UserControl_MouseUp"
     
     On Error GoTo EH
-    RaiseEvent MouseUp(Button, Shift, X, Y)
+    RaiseEvent MouseUp(Button, Shift, ScaleX(X, ScaleMode, vbContainerPosition), ScaleY(Y, ScaleMode, vbContainerPosition))
     If (Button And vbLeftButton) <> 0 Then
         pvState(ucsBstPressed) = False
     End If
-    If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
+    If Button <> 0 And X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
 '        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
         If (m_nDownButton And Button And vbLeftButton) <> 0 Then
             RaiseEvent Click
