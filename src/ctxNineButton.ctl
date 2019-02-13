@@ -6,7 +6,10 @@ Begin VB.UserControl ctxNineButton
    ClientTop       =   0
    ClientWidth     =   4044
    ClipBehavior    =   0  'None
+   ClipControls    =   0   'False
    DefaultCancel   =   -1  'True
+   HasDC           =   0   'False
+   HitBehavior     =   0  'None
    KeyPreview      =   -1  'True
    ScaleHeight     =   105
    ScaleMode       =   3  'Pixel
@@ -933,11 +936,26 @@ EH:
 End Sub
 
 Public Sub CancelMode()
+    Const FUNC_NAME     As String = "CancelMode"
+    
+    On Error GoTo EH
     pvState(ucsBstHoverPressed) = False
+    m_nDownButton = 0
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 Friend Sub frTimer()
+    Const FUNC_NAME     As String = "frTimer"
+    
+    On Error GoTo EH
     pvAnimateState TimerEx - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 '== private ==============================================================
@@ -2029,22 +2047,20 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
     RaiseEvent MouseMove(Button, Shift, _
         AlignTwipsToPix(ScaleX(X, ScaleMode, vbContainerPosition)), _
         AlignTwipsToPix(ScaleY(Y, ScaleMode, vbContainerPosition)))
-    If m_nDownButton <> Button And Button <> 0 Then
-        pvHandleMouseDown Button, Shift, X, Y
+    If Button = -1 Then
+        GoTo QH
     End If
-    If Button = 0 Then
-        pvState(ucsBstHoverPressed Or ucsBstHover) = False
-    ElseIf X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
+    If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
         If Not pvState(ucsBstHover) Then
             If pvParentRegisterCancelMode(Me) Then
                 pvState(ucsBstHover) = True
             End If
         End If
+        pvState(ucsBstPressed) = (Button And vbLeftButton) <> 0
     Else
-        If pvState(ucsBstHover) Then
-            pvState(ucsBstHover) = False
-        End If
+        pvState(ucsBstPressed) = False
     End If
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -2058,18 +2074,23 @@ Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single
     RaiseEvent MouseUp(Button, Shift, _
         AlignTwipsToPix(ScaleX(X, ScaleMode, vbContainerPosition)), _
         AlignTwipsToPix(ScaleY(Y, ScaleMode, vbContainerPosition)))
+    If Button = -1 Then
+        GoTo QH
+    End If
     If (Button And vbLeftButton) <> 0 Then
         pvState(ucsBstPressed) = False
     End If
     If Button <> 0 And X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
-'        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
         If (m_nDownButton And Button And vbLeftButton) <> 0 Then
             RaiseEvent Click
         ElseIf (m_nDownButton And Button And vbRightButton) <> 0 Then
             RaiseEvent ContextMenu
         End If
+    Else
+        pvState(ucsBstHover) = False
     End If
     m_nDownButton = 0
+QH:
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -2252,13 +2273,20 @@ EH:
 End Sub
 
 Private Sub UserControl_Hide()
+    Const FUNC_NAME     As String = "UserControl_Hide"
+    
+    On Error GoTo EH
     m_bShown = False
     If m_hPrevBitmap <> 0 Then
         Call GdipDisposeImage(m_hPrevBitmap)
         m_hPrevBitmap = 0
     End If
-    pvState(ucsBstHoverPressed) = False
+    CancelMode
     TerminateFireOnceTimer m_uTimer
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume Next
 End Sub
 
 '=========================================================================
