@@ -7,6 +7,8 @@ Begin VB.UserControl ctxTouchKeyboard
    ClientLeft      =   0
    ClientTop       =   0
    ClientWidth     =   3840
+   ClipBehavior    =   0  'None
+   ClipControls    =   0   'False
    ScaleHeight     =   2880
    ScaleWidth      =   3840
    Windowless      =   -1  'True
@@ -118,6 +120,8 @@ Private Const DEF_FORECOLOR         As Long = vbWindowBackground
 Private Const DEF_ENABLED           As Boolean = True
 Private Const DEF_USEFOREBITMAP     As Boolean = True
 Private Const DEF_KEYSALLOWREPEAT   As String = "<="
+Private Const BUTTON_RADIUS         As Single = 6
+Private Const BUTTON_BLUR           As Single = 5
 
 #If ImplHasTimers Then
     Private m_uTimer            As FireOnceTimerData
@@ -415,11 +419,11 @@ Private Sub pvSizeLayout()
         Next
         dblCurrent = 0
         For Each vElem In m_cButtonRows(lIdx)
-            dblLeft = AlignTwipsToPix(dblCurrent * ScaleWidth / dblTotal)
-            dblTop = AlignTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
+            dblLeft = AlignOrigTwipsToPix(dblCurrent * ScaleWidth / dblTotal)
+            dblTop = AlignOrigTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
             MoveCtl btn(vElem(0)), dblLeft, dblTop, _
-                AlignTwipsToPix((dblCurrent + vElem(1)) * ScaleWidth / dblTotal) - dblLeft, _
-                AlignTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1)) - dblTop
+                AlignOrigTwipsToPix((dblCurrent + vElem(1)) * ScaleWidth / dblTotal - dblLeft), _
+                AlignOrigTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1) - dblTop)
             dblCurrent = dblCurrent + vElem(1)
         Next
     Next
@@ -439,6 +443,8 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
     
     On Error GoTo EH
     If clrBack <> Transparent Then
+        sngRadius = IconScale(BUTTON_RADIUS)
+        sngBlur = IconScale(BUTTON_BLUR)
         If SearchCollection(m_cButtonImageCache, "N" & Hex(clrBack)) Then
             hNormalBitmap = m_cButtonImageCache.Item("N" & Hex(clrBack))
             hHoverBitmap = m_cButtonImageCache.Item("H" & Hex(clrBack))
@@ -446,8 +452,6 @@ Private Function pvLoadButton(ByVal clrBack As Long) As Long
         Else
             clrBorder = GdipAdjustColor(clrBack, AdjustBri:=0.3, AdjustAlpha:=-0.5)
             clrShadow = GdipAdjustColor(clrBack, AdjustBri:=-0.8, AdjustAlpha:=-0.75)
-            sngRadius = IconScale(6)
-            sngBlur = IconScale(5)
             If Not GdipPrepareButtonBitmap(sngRadius, sngBlur, clrBorder, clrBack, clrShadow, hNormalBitmap) Then
                 GoTo QH
             End If
@@ -494,8 +498,8 @@ Private Function pvPrepareForeground(hFore As Long) As Boolean
     Dim hAttributes     As Long
     
     On Error GoTo EH
-    lWidth = ScaleWidth \ Screen.TwipsPerPixelX
-    lHeight = ScaleHeight \ Screen.TwipsPerPixelX
+    lWidth = Int(ScaleWidth / OrigTwipsPerPixelX + 0.5)
+    lHeight = Int(ScaleHeight / OrigTwipsPerPixelX + 0.5)
     If hFore <> 0 Then
         Call GdipDisposeImage(hFore)
         hFore = 0
@@ -668,7 +672,6 @@ Private Function pvGetKeyboardSpeed() As Long
 End Function
 
 #If Not ImplUseShared Then
-
 Private Function At(Data As Variant, ByVal Index As Long, Optional Default As String) As String
     On Error GoTo QH
     At = Default
@@ -678,12 +681,12 @@ Private Function At(Data As Variant, ByVal Index As Long, Optional Default As St
 QH:
 End Function
 
-Private Function AlignTwipsToPix(ByVal dblTwips As Double) As Double
-    AlignTwipsToPix = Int(dblTwips / Screen.TwipsPerPixelX + 0.5) * Screen.TwipsPerPixelX
+Private Function AlignOrigTwipsToPix(ByVal dblTwips As Double) As Double
+    AlignOrigTwipsToPix = Int(dblTwips / OrigTwipsPerPixelX + 0.5) * OrigTwipsPerPixelX
 End Function
 
 Private Function IconScale(ByVal sngSize As Single) As Long
-    Select Case Screen.TwipsPerPixelX
+    Select Case ScreenTwipsPerPixelX
     Case Is < 6.5
         IconScale = Int(sngSize * 3)
     Case Is < 9.5
@@ -696,10 +699,10 @@ Private Function IconScale(ByVal sngSize As Single) As Long
 End Function
 
 Private Sub MoveCtl(oCtl As Object, ByVal Left As Single, ByVal Top As Variant, ByVal Width As Variant, ByVal Height As Variant)
-    If 1440 \ Screen.TwipsPerPixelX = 1440 / Screen.TwipsPerPixelX Then
+    If 1440 \ ScreenTwipsPerPixelX = 1440 / ScreenTwipsPerPixelX Then
         oCtl.Move Left, Top, Width, Height
     Else
-        oCtl.Move Left + Screen.TwipsPerPixelX, Top, Width, Height
+        oCtl.Move Left + ScreenTwipsPerPixelX, Top, Width, Height
         oCtl.Move Left
     End If
 End Sub
@@ -712,6 +715,21 @@ Private Function PathCombine(sPath As String, sFile As String) As String
     PathCombine = sPath & IIf(LenB(sPath) <> 0 And Right$(sPath, 1) <> "\" And LenB(sFile) <> 0, "\", vbNullString) & sFile
 End Function
 
+Private Property Get ScreenTwipsPerPixelX() As Single
+    ScreenTwipsPerPixelX = Screen.TwipsPerPixelX
+End Property
+
+Private Property Get ScreenTwipsPerPixelY() As Single
+    ScreenTwipsPerPixelY = Screen.TwipsPerPixelY
+End Property
+
+Private Property Get OrigTwipsPerPixelX() As Single
+    OrigTwipsPerPixelX = Screen.TwipsPerPixelX
+End Property
+
+Private Property Get OrigTwipsPerPixelY() As Single
+    OrigTwipsPerPixelY = Screen.TwipsPerPixelY
+End Property
 #End If ' Not ImplUseShared
 
 '=========================================================================
@@ -801,6 +819,7 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
     Const FA_ARROW_ALT_CIRCLE_UP As Long = &HF35B&
     Const FA_BACKSPACE  As Long = &HF55A&
     Const FA_KEYBOARD   As Long = &HF11C&
+    Const FA_CHECK_CIRCLE As Long = &HF058&
     Dim lLeft           As Long
     Dim lTop            As Long
     Dim lWidth          As Long
@@ -809,44 +828,55 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
     Dim hBrush          As Long
     Dim uRect           As RECTF
     Dim bShift          As Boolean
+    Dim sText           As String
+    Dim hTextFont       As Long
     
     On Error GoTo EH
     With btn(Index)
-        lLeft = .Left \ Screen.TwipsPerPixelX
-        lTop = .Top \ Screen.TwipsPerPixelY
-        lWidth = .Width \ Screen.TwipsPerPixelX
-        lHeight = .Height \ Screen.TwipsPerPixelX
+        lLeft = .Left \ ScreenTwipsPerPixelX
+        lTop = .Top \ ScreenTwipsPerPixelY
+        lWidth = Int(.Width / OrigTwipsPerPixelX + 0.5)
+        lHeight = Int(.Height / OrigTwipsPerPixelY + 0.5)
     End With
     If m_hAwesomeRegular <> 0 And m_hAwesomeSolid <> 0 Then
-        If Not GdipPrepareStringFormat(ucsBflCenter, hStringFormat) Then
-            GoTo QH
-        End If
-        If GdipCreateSolidFill(GdipTranslateColor(m_clrFore), hBrush) <> 0 Then
-            GoTo QH
-        End If
-        uRect.Right = lWidth
-        uRect.Bottom = lHeight
+        With uRect
+            .Left = ClientLeft + IconScale(BUTTON_RADIUS)
+            .Top = ClientTop + IconScale(BUTTON_RADIUS)
+            .Right = ClientWidth - 2 * IconScale(BUTTON_RADIUS)
+            .Bottom = ClientHeight - 2 * IconScale(BUTTON_RADIUS)
+        End With
         Select Case Caption
         Case "^^"
             bShift = InStr(btn(Index).Tag, "|L") > 0
             If (ButtonState And ucsBstPressed) <> 0 Then
                 bShift = Not bShift
             End If
-            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_ARROW_ALT_CIRCLE_UP)), -1, IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular), uRect, hStringFormat, hBrush) <> 0 Then
-                GoTo QH
-            End If
-            Caption = vbNullString
+            sText = ChrW(FA_ARROW_ALT_CIRCLE_UP)
+            hTextFont = IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular)
         Case "<="
-            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_BACKSPACE)), -1, m_hAwesomeSolid, uRect, hStringFormat, hBrush) <> 0 Then
-                GoTo QH
-            End If
-            Caption = vbNullString
+            sText = ChrW(FA_BACKSPACE)
+            hTextFont = m_hAwesomeSolid
         Case "keyb"
-            If GdipDrawString(hGraphics, StrPtr(ChrW(FA_KEYBOARD)), -1, m_hAwesomeRegular, uRect, hStringFormat, hBrush) <> 0 Then
+            sText = ChrW(FA_KEYBOARD)
+            hTextFont = m_hAwesomeRegular
+        Case "Done", "Готово"
+            If uRect.Right < uRect.Bottom * 1.2 Then
+                sText = ChrW(FA_CHECK_CIRCLE)
+                hTextFont = m_hAwesomeRegular
+            End If
+        End Select
+        If LenB(sText) <> 0 Then
+            If Not GdipPrepareStringFormat(ucsBflCenter, hStringFormat) Then
+                GoTo QH
+            End If
+            If GdipCreateSolidFill(GdipTranslateColor(m_clrFore), hBrush) <> 0 Then
+                GoTo QH
+            End If
+            If GdipDrawString(hGraphics, StrPtr(sText), -1, hTextFont, uRect, hStringFormat, hBrush) <> 0 Then
                 GoTo QH
             End If
             Caption = vbNullString
-        End Select
+        End If
     End If
     If m_hForeBitmap <> 0 Then
         If GdipDrawImageRectRect(hGraphics, m_hForeBitmap, 0, 0, lWidth, lHeight, lLeft, lTop, lWidth, lHeight) <> 0 Then
