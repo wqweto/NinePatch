@@ -58,7 +58,7 @@ Private Const FillModeAlternate             As Long = 0
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
 Private Declare Function VirtualProtect Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flNewProtect As Long, ByRef lpflOldProtect As Long) As Long
 Private Declare Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As Long
-Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As Long, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
+Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryA" (ByVal pszString As String, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByRef pcbBinary As Long, ByRef pdwSkip As Long, ByRef pdwFlags As Long) As Long
 Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
 Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hDC As Long) As Long
 Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
@@ -94,8 +94,6 @@ Private Declare Function GdipEndContainer Lib "gdiplus" (ByVal hGraphics As Long
 Public Declare Function GdipDeletePrivateFontCollection Lib "gdiplus" (hFontCollection As Long) As Long
 #If Not ImplUseShared Then
     Private Declare Function OleTranslateColor Lib "oleaut32" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
-    Private Declare Function SetTimer Lib "user32" (ByVal hWnd As Long, ByVal nIDEvent As Long, ByVal uElapse As Long, ByVal lpTimerFunc As Long) As Long
-        Private Declare Function KillTimer Lib "user32" (ByVal hWnd As Long, ByVal nIDEvent As Long) As Long
     Private Declare Function GdipCreateStringFormat Lib "gdiplus" (ByVal hFormatAttributes As Long, ByVal nLanguage As Integer, hStringFormat As Long) As Long
     Private Declare Function GdipSetStringFormatFlags Lib "gdiplus" (ByVal hStringFormat As Long, ByVal lFlags As Long) As Long
     Private Declare Function GdipSetStringFormatAlign Lib "gdiplus" (ByVal hStringFormat As Long, ByVal eAlign As StringAlignment) As Long
@@ -309,9 +307,9 @@ Private Sub pvPatchThunk(ByVal pfn As Long, sThunkStr As String)
     Dim bInIDE          As Boolean
 
     '--- decode thunk
-    Call CryptStringToBinary(StrPtr(sThunkStr), Len(sThunkStr), CRYPT_STRING_BASE64, 0, lThunkSize, 0, 0)
+    Call CryptStringToBinary(sThunkStr, Len(sThunkStr), CRYPT_STRING_BASE64, 0, lThunkSize, 0, 0)
     lThunkPtr = VirtualAlloc(0, lThunkSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
-    Call CryptStringToBinary(StrPtr(sThunkStr), Len(sThunkStr), CRYPT_STRING_BASE64, lThunkPtr, lThunkSize, 0, 0)
+    Call CryptStringToBinary(sThunkStr, Len(sThunkStr), CRYPT_STRING_BASE64, lThunkPtr, lThunkSize, 0, 0)
     '--- patch func
     Debug.Assert pvSetTrue(bInIDE)
     If bInIDE Then
@@ -670,53 +668,6 @@ Private Function Ceil(ByVal Value As Double) As Double
 End Function
 
 #If Not ImplUseShared Then
-
-'= push-param thunk ======================================================
-
-Public Sub InitPushParamThunk(Thunk As PushParamThunk, ByVal ParamValue As Long, ByVal pfnDest As Long)
-'push [esp]
-'mov eax, 16h // Dummy value for parameter value
-'mov [esp + 4], eax
-'nop // Adjustment so the next long is nicely aligned
-'nop
-'nop
-'mov eax, 1234h // Dummy value for function
-'jmp eax
-'nop
-'nop
-    Dim dwDummy         As Long
-
-    With Thunk.Code
-        .Thunk(0) = &HB82434FF
-        .Thunk(1) = ParamValue
-        .Thunk(2) = &H4244489
-        .Thunk(3) = &HB8909090
-        .Thunk(4) = pfnDest
-        .Thunk(5) = &H9090E0FF
-        Call VirtualProtect(.Thunk(0), Len(Thunk), PAGE_EXECUTE_READWRITE, dwDummy)
-    End With
-    Thunk.pfn = VarPtr(Thunk.Code)
-End Sub
-
-'= fire-once timers ======================================================
-
-Public Sub InitFireOnceTimer(Data As FireOnceTimerData, ByVal ThisPtr As Long, ByVal pfnRedirect As Long, Optional ByVal Delay As Long)
-    With Data
-        InitPushParamThunk .TimerProcThunkData, VarPtr(Data), pfnRedirect
-        InitPushParamThunk .TimerProcThunkThis, ThisPtr, .TimerProcThunkData.pfn
-        .TimerID = SetTimer(0, 0, Delay, .TimerProcThunkThis.pfn)
-    End With
-End Sub
-
-Public Sub TerminateFireOnceTimer(Data As FireOnceTimerData)
-    With Data
-        If .TimerID <> 0 Then
-            Call KillTimer(0, .TimerID)
-            .TimerID = 0
-        End If
-    End With
-End Sub
-
 Private Sub PatchMethodProto(ByVal pfn As Long, ByVal lMethodIdx As Long)
     Dim bInIDE          As Boolean
     
@@ -878,35 +829,3 @@ Public Function GdipTranslateColor(ByVal clrValue As OLE_COLOR, Optional ByVal A
     Call CopyMemory(GdipTranslateColor, uQuad, 4)
 End Function
 #End If ' ImplUseShared
-
-'==============================================================================
-' Redirectors
-'==============================================================================
-
-Public Sub RedirectTouchButtonTimerProc( _
-            Data As FireOnceTimerData, _
-            ByVal This As ctxTouchButton, _
-            ByVal hWnd As Long, _
-            ByVal wMsg As Long, _
-            ByVal idEvent As Long, _
-            ByVal dwTime As Long)
-    #If hWnd And wMsg And dwTime Then '--- touch
-    #End If
-    Data.TimerID = idEvent
-    TerminateFireOnceTimer Data
-    This.frTimer
-End Sub
-
-Public Sub RedirectTouchKeyboardTimerProc( _
-            Data As FireOnceTimerData, _
-            ByVal This As ctxTouchKeyboard, _
-            ByVal hWnd As Long, _
-            ByVal wMsg As Long, _
-            ByVal idEvent As Long, _
-            ByVal dwTime As Long)
-    #If hWnd And wMsg And dwTime Then '--- touch
-    #End If
-    Data.TimerID = idEvent
-    TerminateFireOnceTimer Data
-    This.frTimer
-End Sub
