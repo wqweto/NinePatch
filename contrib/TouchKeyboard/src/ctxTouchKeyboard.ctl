@@ -53,7 +53,6 @@ DefObj A-Z
 Private Const STR_MODULE_NAME As String = "ctxTouchKeyboard"
 
 #Const ImplUseShared = NPPNG_USE_SHARED <> 0
-#Const ImplHasTimers = True
 
 '=========================================================================
 ' Public Events
@@ -79,10 +78,13 @@ Private Const Transparent                   As Long = &HFFFFFF
 '--- for SystemParametersInfo
 Private Const SPI_GETKEYBOARDSPEED          As Long = 10
 Private Const SPI_GETKEYBOARDDELAY          As Long = 22
+'--- for thunks
+Private Const MEM_COMMIT                    As Long = &H1000
+Private Const PAGE_EXECUTE_READWRITE        As Long = &H40
+Private Const CRYPT_STRING_BASE64           As Long = 1
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
-'Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 Private Declare Function SystemParametersInfo Lib "user32" Alias "SystemParametersInfoA" (ByVal uAction As Long, ByVal uParam As Long, ByRef lpvParam As Any, ByVal fuWinIni As Long) As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
@@ -100,6 +102,14 @@ Private Declare Function GdipCreateImageAttributes Lib "gdiplus" (hImgAttr As Lo
 Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal hImgAttr As Long, ByVal lAdjustType As Long, ByVal fAdjustEnabled As Long, clrMatrix As Any, grayMatrix As Any, ByVal lFlags As Long) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal hImgAttr As Long) As Long
 Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, ByVal lStrPtr As Long, ByVal lLength As Long, ByVal hFont As Long, uRect As RECTF, ByVal hStringFormat As Long, ByVal hBrush As Long) As Long
+#If Not ImplUseShared Then
+    '--- for thunks
+    Private Declare Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As Long
+    Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryA" (ByVal pszString As String, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, pcbBinary As Long, Optional ByVal pdwSkip As Long, Optional ByVal pdwFlags As Long) As Long
+    Private Declare Function CallWindowProc Lib "user32" Alias "CallWindowProcA" (ByVal lpPrevWndFunc As Long, ByVal hWnd As Long, ByVal Msg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+'    Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
+    Private Declare Function GetProcAddress Lib "kernel32" (ByVal hModule As Long, ByVal lpProcName As String) As Long
+#End If
 
 Private Type RECTF
    Left                 As Single
@@ -123,9 +133,7 @@ Private Const DEF_KEYSALLOWREPEAT   As String = "<="
 Private Const BUTTON_RADIUS         As Single = 6
 Private Const BUTTON_BLUR           As Single = 5
 
-#If ImplHasTimers Then
-    Private m_uTimer            As FireOnceTimerData
-#End If
+Private m_pTimer                As IUnknown
 Private m_lRepeatIndex          As Long
 '--- design-time
 Private m_clrFore               As OLE_COLOR
@@ -280,6 +288,10 @@ Property Get ButtonTag(ByVal Index As Long) As String
     ButtonTag = btn(Index).Tag
 End Property
 
+Private Property Get pvAddressOfTimerProc() As ctxTouchKeyboard
+    Set pvAddressOfTimerProc = InitAddressOfMethod(Me, 0)
+End Property
+
 '=========================================================================
 ' Methods
 '=========================================================================
@@ -315,24 +327,22 @@ Public Sub Repaint()
     End If
 End Sub
 
-#If ImplHasTimers Then
-Friend Sub frTimer()
-    Const FUNC_NAME     As String = "frTimer"
+Public Function TimerProc() As Long
+Attribute TimerProc.VB_MemberFlags = "40"
+    Const FUNC_NAME     As String = "TimerProc"
     
     On Error GoTo EH
     If m_lRepeatIndex <> 0 Then
         RaiseEvent ButtonClick(m_lRepeatIndex)
         If m_lRepeatIndex <> 0 Then
-            TerminateFireOnceTimer m_uTimer
-            InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectTouchKeyboardTimerProc, pvGetKeyboardSpeed
+            Set m_pTimer = InitFireOnceTimerThunk(ObjPtr(Me), pvAddressOfTimerProc.TimerProc, pvGetKeyboardSpeed)
         End If
     End If
-    Exit Sub
+    Exit Function
 EH:
     PrintError FUNC_NAME
     Resume Next
-End Sub
-#End If
+End Function
 
 '= private ===============================================================
 
@@ -591,8 +601,8 @@ End Function
 
 Private Sub pvPrepareFontAwesome()
     If Not m_oFont Is Nothing Then
-        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "\fa-regular-400.ttf")), m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
-        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "\fa-solid-900.ttf")), m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-regular-400.ttf")), m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-solid-900.ttf")), m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
     End If
 End Sub
 
@@ -730,6 +740,60 @@ End Property
 Private Property Get OrigTwipsPerPixelY() As Single
     OrigTwipsPerPixelY = Screen.TwipsPerPixelY
 End Property
+
+Private Function InitAddressOfMethod(pObj As Object, ByVal MethodParamCount As Long) As Object
+    Const STR_THUNK     As String = "6AAAAABag+oFV4v6ge9QEJIAgcekEZIAuP9EJAS5+QcAAPOri8LB4AgFuQAAAKuLwsHoGAUAjYEAq7gIAAArq7hEJASLq7hJCIsEq7iBi1Qkq4tEJAzB4AIFCIkCM6uLRCQMweASBcDCCACriTrHQgQBAAAAi0QkCIsAiUIIi0QkEIlCDIHqUBCSAIvCBTwRkgCri8IFUBGSAKuLwgVgEZIAq4vCBYQRkgCri8IFjBGSAKuLwgWUEZIAq4vCBZwRkgCri8IFpBGSALn5BwAAq4PABOL6i8dfgcJQEJIAi0wkEIkRK8LCEAAPHwCLVCQE/0IEi0QkDIkQM8DCDABmkItUJAT/QgSLQgTCBAAPHwCLVCQE/0oEi0IEg/gAfgPCBABZWotCDGgAgAAAagBSUf/gZpC4AUAAgMIIALgBQACAwhAAuAFAAIDCGAC4AUAAgMIkAA=="
+    Const THUNK_SIZE    As Long = 16728
+    Dim hThunk          As Long
+    Dim lSize           As Long
+    
+    hThunk = VirtualAlloc(0, THUNK_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+    Call CryptStringToBinary(STR_THUNK, Len(STR_THUNK), CRYPT_STRING_BASE64, hThunk, THUNK_SIZE)
+    lSize = CallWindowProc(hThunk, ObjPtr(pObj), MethodParamCount, GetProcAddress(GetModuleHandle("kernel32"), "VirtualFree"), VarPtr(InitAddressOfMethod))
+    Debug.Assert lSize = THUNK_SIZE
+End Function
+
+Private Function InitFireOnceTimerThunk(ByVal lThisPtr As Long, ByVal pfnCallback As Long, Optional Delay As Long) As IUnknown
+    Const STR_THUNK     As String = "6AAAAABag+oFgepQELoAV1aLdCQUg8YIgz4AdCqL+oHHABK6AIvCBTQRugCri8IFcBG6AKuLwgWAEboAqzPAq7kIAAAA86WBwgASugBSahT/UhBai/iLwqu4AQAAAKszwKuLdCQUpaWD7xSLSgz/QgyBYgz/AAAAjQTKjQTIjUyIMMcB/zQkuIl5BMdBCIlEJASLwi0AEroABagRugBQweAIBbgAAACJQQxYwegYBQD/4JCJQRBR/3QkFGoAagCLD/9RGIlHCItEJBiJOF5fuDASugAtUBC6AAUAFAAAwhAADx8Ai0QkCIM4AHUqg3gEAHUkgXgIwAAAAHUbgXgMAAAARnUSi1QkBP9CBItEJAyJEDPAwgwAuAJAAIDCDACQi1QkBP9CBItCBMIEAA8fAItUJAT/SgSLQgSD+AB/FosK/3IIagD/URyLVCQEiwpS/1EUM8DCBACLVCQEiwqLQSiFwHQ8Uv/QWoP4AXU+iwpS/1EsWoXAdTOLClJq8P9xIP9RJFqpAAAACHUgiwr/cghqAP9RHItUJATHQggAAAAAM8BQVP9yDP9SEFjCFACQ"
+    Const THUNK_SIZE    As Long = 5600
+    Static hThunk       As Long
+    Dim aParams(0 To 9) As Long
+    Dim lSize           As Long
+    
+    aParams(0) = lThisPtr
+    aParams(1) = pfnCallback
+    If hThunk = 0 Then
+        hThunk = VirtualAlloc(0, THUNK_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+        Call CryptStringToBinary(STR_THUNK, Len(STR_THUNK), CRYPT_STRING_BASE64, hThunk, THUNK_SIZE)
+        aParams(2) = GetProcAddress(GetModuleHandle("ole32"), "CoTaskMemAlloc")
+        aParams(3) = GetProcAddress(GetModuleHandle("ole32"), "CoTaskMemFree")
+        aParams(4) = GetProcAddress(GetModuleHandle("user32"), "SetTimer")
+        aParams(5) = GetProcAddress(GetModuleHandle("user32"), "KillTimer")
+        #If Not ImplNoVBIDESupport Then
+            If InIde Then
+                aParams(6) = hIdeOwner
+                aParams(7) = GetProcAddress(GetModuleHandle("user32"), "GetWindowLongA")
+                aParams(8) = GetProcAddress(GetModuleHandle("vba6"), "EbMode")
+                aParams(9) = GetProcAddress(GetModuleHandle("vba6"), "EbIsResetting")
+            End If
+        #End If
+    End If
+    lSize = CallWindowProc(hThunk, 0, Delay, VarPtr(aParams(0)), VarPtr(InitFireOnceTimerThunk))
+    Debug.Assert lSize = THUNK_SIZE
+End Function
+
+Private Property Get InIde() As Boolean
+    Debug.Assert pvSetTrue(InIde)
+End Property
+
+Private Function pvSetTrue(bValue As Boolean) As Boolean
+    bValue = True
+    pvSetTrue = True
+End Function
+
+Private Property Get hIdeOwner() As Long
+
+End Property
 #End If ' Not ImplUseShared
 
 '=========================================================================
@@ -740,9 +804,7 @@ Private Sub btn_Click(Index As Integer)
     Const FUNC_NAME     As String = "btn_Click"
     
     On Error GoTo EH
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     m_lRepeatIndex = 0
     If Not pvIsRepeatKey(Index) Then
         RaiseEvent ButtonClick(Index)
@@ -757,9 +819,7 @@ Private Sub btn_DblClick(Index As Integer)
     Const FUNC_NAME     As String = "btn_DblClick"
     
     On Error GoTo EH
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     m_lRepeatIndex = 0
     If pvIsRepeatKey(Index) Then
         RaiseEvent ButtonClick(Index)
@@ -774,19 +834,14 @@ Private Sub btn_MouseDown(Index As Integer, Button As Integer, Shift As Integer,
     Const FUNC_NAME     As String = "btn_MouseDown"
     
     On Error GoTo EH
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     m_lRepeatIndex = 0
     RaiseEvent ButtonMouseDown(Index, Button, Shift, X, Y)
     If pvIsRepeatKey(Index) Then
         RaiseEvent ButtonClick(Index)
         m_lRepeatIndex = Index
         If m_lRepeatIndex <> 0 Then
-            #If ImplHasTimers Then
-                TerminateFireOnceTimer m_uTimer
-                InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectTouchKeyboardTimerProc, pvGetKeyboardDelay
-            #End If
+            Set m_pTimer = InitFireOnceTimerThunk(ObjPtr(Me), pvAddressOfTimerProc.TimerProc, pvGetKeyboardDelay)
         End If
     End If
     Exit Sub
@@ -803,9 +858,7 @@ Private Sub btn_MouseUp(Index As Integer, Button As Integer, Shift As Integer, X
     Const FUNC_NAME     As String = "btn_MouseUp"
     
     On Error GoTo EH
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     m_lRepeatIndex = 0
     RaiseEvent ButtonMouseUp(Index, Button, Shift, X, Y)
     Exit Sub
@@ -851,17 +904,17 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
             If (ButtonState And ucsBstPressed) <> 0 Then
                 bShift = Not bShift
             End If
-            sText = ChrW(FA_ARROW_ALT_CIRCLE_UP)
+            sText = ChrW$(FA_ARROW_ALT_CIRCLE_UP)
             hTextFont = IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular)
         Case "<="
-            sText = ChrW(FA_BACKSPACE)
+            sText = ChrW$(FA_BACKSPACE)
             hTextFont = m_hAwesomeSolid
         Case "keyb"
-            sText = ChrW(FA_KEYBOARD)
+            sText = ChrW$(FA_KEYBOARD)
             hTextFont = m_hAwesomeRegular
         Case "Done", "Готово"
             If uRect.Right < uRect.Bottom * 1.2 Then
-                sText = ChrW(FA_CHECK_CIRCLE)
+                sText = ChrW$(FA_CHECK_CIRCLE)
                 hTextFont = m_hAwesomeRegular
             End If
         End Select
@@ -1066,9 +1119,7 @@ End Sub
 Private Sub UserControl_Terminate()
     Dim vElem           As Variant
     
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     m_lRepeatIndex = 0
     For Each vElem In m_cButtonImageCache
         Call GdipDisposeImage(vElem)

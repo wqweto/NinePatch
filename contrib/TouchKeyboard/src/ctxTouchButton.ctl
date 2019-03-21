@@ -26,7 +26,6 @@ DefObj A-Z
 Private Const STR_MODULE_NAME As String = "ctxTouchButton"
 
 #Const ImplUseShared = NPPNG_USE_SHARED <> 0
-#Const ImplHasTimers = True
 
 '=========================================================================
 ' Public events
@@ -89,6 +88,10 @@ Private Const DIB_RGB_COLORS                As Long = 0 '  color table in RGBs
 '--- for GdipBitmapLockBits
 Private Const ImageLockModeRead             As Long = &H1
 Private Const ImageLockModeWrite            As Long = &H2
+'--- for thunks
+Private Const MEM_COMMIT                    As Long = &H1000
+Private Const PAGE_EXECUTE_READWRITE        As Long = &H40
+Private Const CRYPT_STRING_BASE64           As Long = 1
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (lpDst As Any, lpSrc As Any, ByVal ByteLength As Long)
 Private Declare Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As Long
@@ -129,6 +132,12 @@ Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Lo
 #If Not ImplUseShared Then
     Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
     Private Declare Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
+    '--- for thunks
+    Private Declare Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As Long, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As Long
+    Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryA" (ByVal pszString As String, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, pcbBinary As Long, Optional ByVal pdwSkip As Long, Optional ByVal pdwFlags As Long) As Long
+    Private Declare Function CallWindowProc Lib "user32" Alias "CallWindowProcA" (ByVal lpPrevWndFunc As Long, ByVal hWnd As Long, ByVal Msg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+'    Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As Long
+    Private Declare Function GetProcAddress Lib "kernel32" (ByVal hModule As Long, ByVal lpProcName As String) As Long
 #End If
 
 Private Type RECTF
@@ -237,9 +246,7 @@ Private m_hFont                 As Long
 Private m_bShown                As Boolean
 Private m_hPictureBitmap        As Long
 Private m_hPictureAttributes    As Long
-#If ImplHasTimers Then
-    Private m_uTimer            As FireOnceTimerData
-#End If
+Private m_pTimer                As IUnknown
 '--- debug
 Private m_sInstanceName         As String
 #If DebugMode Then
@@ -715,6 +722,10 @@ Private Property Let pvState(ByVal eState As UcsNineButtonStateEnum, ByVal bValu
     End If
 End Property
 
+Private Property Get pvAddressOfTimerProc() As ctxTouchButton
+    Set pvAddressOfTimerProc = InitAddressOfMethod(Me, 0)
+End Property
+
 '=========================================================================
 ' Methods
 '=========================================================================
@@ -751,16 +762,17 @@ EH:
     Resume Next
 End Sub
 
-Friend Sub frTimer()
-    Const FUNC_NAME     As String = "frTimer"
+Public Function TimerProc() As Long
+Attribute TimerProc.VB_MemberFlags = "40"
+    Const FUNC_NAME     As String = "TimerProc"
     
     On Error GoTo EH
     pvAnimateState TimerEx - m_dblAnimationStart, m_sngAnimationOpacity1, m_sngAnimationOpacity2
-    Exit Sub
+    Exit Function
 EH:
     PrintError FUNC_NAME
     Resume Next
-End Sub
+End Function
 
 '== private ==============================================================
 
@@ -1236,23 +1248,18 @@ Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Singl
     On Error GoTo EH
     sngOpacity = sngOpacity2
     m_sngBitmapAlpha = 1
-    #If ImplHasTimers Then
-        dblFull = (m_dblAnimationEnd - m_dblAnimationStart)
-        If dblFull > DBL_EPLISON And dblElapsed <= dblFull Then
-            sngOpacity = sngOpacity1 + (sngOpacity2 - sngOpacity1) * dblElapsed / dblFull
-            m_sngBitmapAlpha = dblElapsed / dblFull
-        End If
-    #End If
+    dblFull = (m_dblAnimationEnd - m_dblAnimationStart)
+    If dblFull > DBL_EPLISON And dblElapsed <= dblFull Then
+        sngOpacity = sngOpacity1 + (sngOpacity2 - sngOpacity1) * dblElapsed / dblFull
+        m_sngBitmapAlpha = dblElapsed / dblFull
+    End If
     If Not pvPrepareAttribs(sngOpacity, m_hAttributes) Then
         GoTo QH
     End If
     UserControl.Refresh
-    #If ImplHasTimers Then
-        If m_sngBitmapAlpha < 1 Then
-            TerminateFireOnceTimer m_uTimer
-            InitFireOnceTimer m_uTimer, ObjPtr(Me), AddressOf RedirectTouchButtonTimerProc
-        End If
-    #End If
+    If m_sngBitmapAlpha < 1 Then
+        Set m_pTimer = InitFireOnceTimerThunk(ObjPtr(Me), pvAddressOfTimerProc.TimerProc)
+    End If
     '--- success
     pvAnimateState = True
     Exit Function
@@ -1425,6 +1432,60 @@ End Property
 Private Function HM2Pix(ByVal Value As Double) As Long
    HM2Pix = Int(Value * 1440 / 2540 / Screen.TwipsPerPixelX + 0.5)
 End Function
+
+Private Function InitAddressOfMethod(pObj As Object, ByVal MethodParamCount As Long) As Object
+    Const STR_THUNK     As String = "6AAAAABag+oFV4v6ge9QEJIAgcekEZIAuP9EJAS5+QcAAPOri8LB4AgFuQAAAKuLwsHoGAUAjYEAq7gIAAArq7hEJASLq7hJCIsEq7iBi1Qkq4tEJAzB4AIFCIkCM6uLRCQMweASBcDCCACriTrHQgQBAAAAi0QkCIsAiUIIi0QkEIlCDIHqUBCSAIvCBTwRkgCri8IFUBGSAKuLwgVgEZIAq4vCBYQRkgCri8IFjBGSAKuLwgWUEZIAq4vCBZwRkgCri8IFpBGSALn5BwAAq4PABOL6i8dfgcJQEJIAi0wkEIkRK8LCEAAPHwCLVCQE/0IEi0QkDIkQM8DCDABmkItUJAT/QgSLQgTCBAAPHwCLVCQE/0oEi0IEg/gAfgPCBABZWotCDGgAgAAAagBSUf/gZpC4AUAAgMIIALgBQACAwhAAuAFAAIDCGAC4AUAAgMIkAA=="
+    Const THUNK_SIZE    As Long = 16728
+    Dim hThunk          As Long
+    Dim lSize           As Long
+    
+    hThunk = VirtualAlloc(0, THUNK_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+    Call CryptStringToBinary(STR_THUNK, Len(STR_THUNK), CRYPT_STRING_BASE64, hThunk, THUNK_SIZE)
+    lSize = CallWindowProc(hThunk, ObjPtr(pObj), MethodParamCount, GetProcAddress(GetModuleHandle("kernel32"), "VirtualFree"), VarPtr(InitAddressOfMethod))
+    Debug.Assert lSize = THUNK_SIZE
+End Function
+
+Private Function InitFireOnceTimerThunk(ByVal lThisPtr As Long, ByVal pfnCallback As Long, Optional Delay As Long) As IUnknown
+    Const STR_THUNK     As String = "6AAAAABag+oFgepQELoAV1aLdCQUg8YIgz4AdCqL+oHHABK6AIvCBTQRugCri8IFcBG6AKuLwgWAEboAqzPAq7kIAAAA86WBwgASugBSahT/UhBai/iLwqu4AQAAAKszwKuLdCQUpaWD7xSLSgz/QgyBYgz/AAAAjQTKjQTIjUyIMMcB/zQkuIl5BMdBCIlEJASLwi0AEroABagRugBQweAIBbgAAACJQQxYwegYBQD/4JCJQRBR/3QkFGoAagCLD/9RGIlHCItEJBiJOF5fuDASugAtUBC6AAUAFAAAwhAADx8Ai0QkCIM4AHUqg3gEAHUkgXgIwAAAAHUbgXgMAAAARnUSi1QkBP9CBItEJAyJEDPAwgwAuAJAAIDCDACQi1QkBP9CBItCBMIEAA8fAItUJAT/SgSLQgSD+AB/FosK/3IIagD/URyLVCQEiwpS/1EUM8DCBACLVCQEiwqLQSiFwHQ8Uv/QWoP4AXU+iwpS/1EsWoXAdTOLClJq8P9xIP9RJFqpAAAACHUgiwr/cghqAP9RHItUJATHQggAAAAAM8BQVP9yDP9SEFjCFACQ"
+    Const THUNK_SIZE    As Long = 5600
+    Static hThunk       As Long
+    Dim aParams(0 To 9) As Long
+    Dim lSize           As Long
+    
+    aParams(0) = lThisPtr
+    aParams(1) = pfnCallback
+    If hThunk = 0 Then
+        hThunk = VirtualAlloc(0, THUNK_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+        Call CryptStringToBinary(STR_THUNK, Len(STR_THUNK), CRYPT_STRING_BASE64, hThunk, THUNK_SIZE)
+        aParams(2) = GetProcAddress(GetModuleHandle("ole32"), "CoTaskMemAlloc")
+        aParams(3) = GetProcAddress(GetModuleHandle("ole32"), "CoTaskMemFree")
+        aParams(4) = GetProcAddress(GetModuleHandle("user32"), "SetTimer")
+        aParams(5) = GetProcAddress(GetModuleHandle("user32"), "KillTimer")
+        #If Not ImplNoVBIDESupport Then
+            If InIde Then
+                aParams(6) = hIdeOwner
+                aParams(7) = GetProcAddress(GetModuleHandle("user32"), "GetWindowLongA")
+                aParams(8) = GetProcAddress(GetModuleHandle("vba6"), "EbMode")
+                aParams(9) = GetProcAddress(GetModuleHandle("vba6"), "EbIsResetting")
+            End If
+        #End If
+    End If
+    lSize = CallWindowProc(hThunk, 0, Delay, VarPtr(aParams(0)), VarPtr(InitFireOnceTimerThunk))
+    Debug.Assert lSize = THUNK_SIZE
+End Function
+
+Private Property Get InIde() As Boolean
+    Debug.Assert pvSetTrue(InIde)
+End Property
+
+Private Function pvSetTrue(bValue As Boolean) As Boolean
+    bValue = True
+    pvSetTrue = True
+End Function
+
+Private Property Get hIdeOwner() As Long
+
+End Property
 #End If
 
 '=========================================================================
@@ -1712,7 +1773,7 @@ Private Sub UserControl_Hide()
         m_hPrevBitmap = 0
     End If
     CancelMode
-    TerminateFireOnceTimer m_uTimer
+    Set m_pTimer = Nothing
     Exit Sub
 EH:
     PrintError FUNC_NAME
@@ -1769,11 +1830,8 @@ Private Sub UserControl_Terminate()
         Call GdipDisposeImageAttributes(m_hPictureAttributes)
         m_hPictureAttributes = 0
     End If
-    #If ImplHasTimers Then
-        TerminateFireOnceTimer m_uTimer
-    #End If
+    Set m_pTimer = Nothing
     #If DebugMode Then
         DebugInstanceTerm MODULE_NAME, m_sDebugID
     #End If
 End Sub
-
