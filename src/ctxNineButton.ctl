@@ -1496,6 +1496,10 @@ Private Function pvStartAnimation(ByVal sngDuration As Single, ByVal sngOpacity1
     If Not pvPrepareBitmap(m_eState, m_hFocusBitmap, hNewBitmap) Then
         GoTo QH
     End If
+    If m_hPrevBitmap <> 0 Then
+        Call GdipDisposeImage(m_hPrevBitmap)
+        m_hPrevBitmap = 0
+    End If
     m_hPrevBitmap = m_hBitmap
     m_hBitmap = hNewBitmap
     hNewBitmap = 0
@@ -1550,6 +1554,18 @@ EH:
     Resume QH
 End Function
 
+Private Property Get pvNppGlobalData(sKey As String) As Long
+    Dim sBuffer     As String
+    
+    sBuffer = String$(50, 0)
+    Call GetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    pvNppGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
+End Property
+
+Private Property Let pvNppGlobalData(sKey As String, ByVal lValue As Long)
+    Call SetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, lValue)
+End Property
+
 Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
     Const FUNC_NAME     As String = "pvSetStyle"
     Static hResBitmap   As Long
@@ -1558,11 +1574,15 @@ Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
     pvSetEmptyStyle
     If eStyle <> ucsBtyNone Then
         If hResBitmap = 0 Then
+            hResBitmap = pvNppGlobalData("hResBitmap")
+        End If
+        If hResBitmap = 0 Then
             With New cNinePatch
                 If Not .frBitmapFromByteArray(FromBase64Array(STR_RES_PNG1 & STR_RES_PNG2), hResBitmap) Then
                     GoTo QH
                 End If
             End With
+            pvNppGlobalData("hResBitmap") = hResBitmap
         End If
         Select Case eStyle
         '--- buttons
