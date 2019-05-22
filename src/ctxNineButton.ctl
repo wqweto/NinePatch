@@ -1588,28 +1588,32 @@ Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
         '--- buttons
         Case ucsBtyButtonDefault
             pvSetButtonStyle hResBitmap, ucsIdxButtonDefNormal, vbBlack, _
-                ShadowColor:=vbWhite, ShadowOffsetY:=1
+                ShadowOpacity:=0.8, ShadowColor:=vbWhite, ShadowOffsetY:=1
         Case ucsBtyButtonGreen
-            pvSetButtonStyle hResBitmap, ucsIdxButtonGreenNormal, vbWhite
+            pvSetButtonStyle hResBitmap, ucsIdxButtonGreenNormal, vbWhite, _
+                ShadowOpacity:=0.2
         Case ucsBtyButtonRed
-            pvSetButtonStyle hResBitmap, ucsIdxButtonRedNormal, vbWhite
+            pvSetButtonStyle hResBitmap, ucsIdxButtonRedNormal, vbWhite, _
+                ShadowOpacity:=0.2
         Case ucsBtyButtonTurnGreen
             pvSetButtonStyle hResBitmap, ucsIdxButtonGreenNormal, vbWhite, _
-                NormalTextColor:=&H7C3F&
+                ShadowOpacity:=0.2, NormalTextColor:=&H7C3F&
         Case ucsBtyButtonTurnRed
             pvSetButtonStyle hResBitmap, ucsIdxButtonRedNormal, vbWhite, _
-                NormalTextColor:=&H3124CB
+                ShadowOpacity:=0.2, NormalTextColor:=&H3124CB
         '--- flat buttons
         Case ucsBtyFlatPrimary
-            pvSetFlatStyle hResBitmap, ucsIdxFlatPrimaryNormal, vbWhite
+            pvSetFlatStyle hResBitmap, ucsIdxFlatPrimaryNormal, vbWhite, _
+                ShadowOpacity:=0.2
         Case ucsBtyFlatSecondary
             pvSetFlatStyle hResBitmap, ucsIdxFlatSecondaryNormal, &H575049, _
-                ShadowOpacity:=1, ShadowColor:=vbWhite, ShadowOffsetY:=1, PressedOffset:=1
+                ShadowOpacity:=0.8, ShadowColor:=vbWhite, ShadowOffsetY:=1, PressedOffset:=1
         Case ucsBtyFlatSuccess
             pvSetFlatStyle hResBitmap, ucsIdxFlatSuccessNormal, vbWhite, _
                 ShadowOpacity:=0.2
         Case ucsBtyFlatDanger
-            pvSetFlatStyle hResBitmap, ucsIdxFlatDangerNormal, vbWhite
+            pvSetFlatStyle hResBitmap, ucsIdxFlatDangerNormal, vbWhite, _
+                ShadowOpacity:=0.2
         Case ucsBtyFlatWarning
             pvSetFlatStyle hResBitmap, ucsIdxFlatWarningNormal, vbWhite, _
                 ShadowOpacity:=0.2
@@ -1618,22 +1622,23 @@ Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
                 ShadowOpacity:=0.2
         Case ucsBtyFlatLight
             pvSetFlatStyle hResBitmap, ucsIdxFlatLightNormal, &H575049, _
-                ShadowOpacity:=1, ShadowColor:=vbWhite, ShadowOffsetY:=1
+                ShadowOpacity:=0.8, ShadowColor:=vbWhite, ShadowOffsetY:=1
         Case ucsBtyFlatDark
             pvSetFlatStyle hResBitmap, ucsIdxFlatDarkNormal, vbWhite, _
-                ShadowOpacity:=0
+                ShadowOpacity:=0.2
         '--- outline buttons
         Case ucsBtyOutlinePrimary
-            pvSetOutlineStyle hResBitmap, ucsIdxFlatPrimaryOutline, &HCF7F46
+            pvSetOutlineStyle hResBitmap, ucsIdxFlatPrimaryOutline, &HCF7F46, _
+                ShadowOpacity:=0.2
         Case ucsBtyOutlineSecondary
             pvSetOutlineStyle hResBitmap, ucsIdxFlatSecondaryOutline, &H575049, _
-                ShadowOpacity:=1, HoverOffset:=2
+                ShadowOpacity:=0.2, HoverOffset:=2
         Case ucsBtyOutlineSuccess
             pvSetOutlineStyle hResBitmap, ucsIdxFlatSuccessOutline, &HBA5E&, _
                 ShadowOpacity:=0.2
         Case ucsBtyOutlineDanger
             pvSetOutlineStyle hResBitmap, ucsIdxFlatDangerOutline, &H1F20CD, _
-                ShadowOpacity:=1
+                ShadowOpacity:=0.2
         Case ucsBtyOutlineWarning
             pvSetOutlineStyle hResBitmap, ucsIdxFlatWarningOutline, &HFC4F1, _
                 ShadowOpacity:=0.2
@@ -1642,10 +1647,10 @@ Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
                 ShadowOpacity:=0.2
         Case ucsBtyOutlineLight
             pvSetOutlineStyle hResBitmap, ucsIdxFlatLightOutline, &H575049, _
-                ShadowColor:=vbWhite, ShadowOffsetY:=1, TextColor:=DEF_TEXTCOLOR, HoverOffset:=1
+                ShadowOpacity:=0.8, ShadowColor:=vbWhite, ShadowOffsetY:=1, TextColor:=DEF_TEXTCOLOR, HoverOffset:=1
         Case ucsBtyOutlineDark
             pvSetOutlineStyle hResBitmap, ucsIdxFlatDarkOutline, &H403A34, _
-                ShadowOpacity:=0
+                ShadowOpacity:=0.2
         '--- cards
         Case ucsBtyCardDefault
             pvSetCardStyle hResBitmap, ucsIdxCardDefault
@@ -1678,29 +1683,34 @@ Private Sub pvSetButtonStyle( _
             ByVal hResBitmap As Long, _
             ByVal eIdx As UcsNineButtonResIndex, _
             ByVal clrFore As OLE_COLOR, _
+            Optional ByVal ShadowOpacity As Single = 1, _
             Optional ByVal ShadowColor As OLE_COLOR = vbBlack, _
             Optional ByVal ShadowOffsetY As Long = -1, _
             Optional ByVal NormalTextColor As OLE_COLOR = DEF_TEXTCOLOR)
     With m_uButton(ucsBstNormal)
         If NormalTextColor = DEF_TEXTCOLOR Then
             Set .ImagePatch = pvResExtract(hResBitmap, eIdx, LNG_BUTTON_TOP, LNG_BUTTON_WIDTH, LNG_BUTTON_HEIGHT)
+            .ShadowOpacity = ShadowOpacity
             .ShadowColor = ShadowColor
             .ShadowOffsetY = ShadowOffsetY
         Else
             Set .ImagePatch = pvResExtract(hResBitmap, ucsIdxButtonDefNormal, LNG_BUTTON_TOP, LNG_BUTTON_WIDTH, LNG_BUTTON_HEIGHT)
             .TextColor = NormalTextColor
+            .ShadowOpacity = 0.8
             .ShadowColor = vbWhite
             .ShadowOffsetY = 1
         End If
     End With
     With m_uButton(ucsBstHover)
         Set .ImagePatch = pvResExtract(hResBitmap, eIdx + 1, LNG_BUTTON_TOP, LNG_BUTTON_WIDTH, LNG_BUTTON_HEIGHT)
+        .ShadowOpacity = ShadowOpacity
         .ShadowColor = ShadowColor
         .ShadowOffsetY = ShadowOffsetY
     End With
     With m_uButton(ucsBstPressed)
         Set .ImagePatch = pvResExtract(hResBitmap, eIdx + 2, LNG_BUTTON_TOP, LNG_BUTTON_WIDTH, LNG_BUTTON_HEIGHT)
         .TextOffsetY = 1
+        .ShadowOpacity = ShadowOpacity
         .ShadowColor = ShadowColor
         .ShadowOffsetY = ShadowOffsetY
     End With
@@ -1708,6 +1718,7 @@ Private Sub pvSetButtonStyle( _
         Set .ImagePatch = pvResExtract(hResBitmap, ucsIdxButtonDisabled, LNG_BUTTON_TOP, LNG_BUTTON_WIDTH, LNG_BUTTON_HEIGHT)
         .TextOpacity = 0.4
         .TextColor = &H2E2924
+        .ShadowOpacity = 0.8
         .ShadowColor = vbWhite
         .ShadowOffsetY = 1
     End With
