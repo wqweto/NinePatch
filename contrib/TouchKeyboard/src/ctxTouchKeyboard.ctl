@@ -33,6 +33,7 @@ Begin VB.UserControl ctxTouchKeyboard
          Strikethrough   =   0   'False
       EndProperty
       ForeColor       =   16777215
+      AutoRedraw      =   -1  'True
    End
    Begin VB.Image Image1 
       Height          =   480
@@ -158,10 +159,10 @@ Private m_oCtlCancelMode        As Object
 Private m_hForeBitmap           As Long
 Private m_cButtonImageCache     As Collection
 Private m_bShown                As Boolean
-Private m_hAwesomeRegular       As Long
-Private m_hAwesomeColRegular    As Long
-Private m_hAwesomeSolid         As Long
-Private m_hAwesomeColSolid      As Long
+Private m_hFontAwesomeRegular   As Long
+Private m_hFontAwesomeColRegular As Long
+Private m_hFontAwesomeSolid     As Long
+Private m_hFontAwesomeColSolid  As Long
 '--- debug
 Private m_sInstanceName         As String
 #If DebugMode Then
@@ -289,16 +290,42 @@ End Property
 
 '= run-time ==============================================================
 
+Property Get ButtonCount() As Long
+    ButtonCount = m_lButtonCurrent
+End Property
+
 Property Get ButtonCaption(ByVal Index As Long) As String
-    ButtonCaption = btn(Index).Caption
+    If Index >= 1 And Index <= m_lButtonCurrent Then
+        ButtonCaption = btn(Index).Caption
+    End If
 End Property
 
 Property Get ButtonTag(ByVal Index As Long) As String
-    ButtonTag = btn(Index).Tag
+    If Index >= 1 And Index <= m_lButtonCurrent Then
+        ButtonTag = btn(Index).Tag
+    End If
+End Property
+
+Property Let ButtonValue(ByVal Index As Long, ByVal bValue As Boolean)
+    If Index >= 1 And Index <= m_lButtonCurrent Then
+        btn(Index).Value = bValue
+    End If
 End Property
 
 Private Property Get pvAddressOfTimerProc() As ctxTouchKeyboard
     Set pvAddressOfTimerProc = InitAddressOfMethod(Me, 0)
+End Property
+
+Private Property Get pvNppGlobalData(sKey As String) As Long
+    Dim sBuffer     As String
+    
+    sBuffer = String$(50, 0)
+    Call GetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    pvNppGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
+End Property
+
+Private Property Let pvNppGlobalData(sKey As String, ByVal lValue As Long)
+    Call SetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, lValue)
 End Property
 
 '=========================================================================
@@ -425,25 +452,25 @@ Private Sub pvSizeLayout()
     Const FUNC_NAME     As String = "pvSizeLayout"
     Dim lIdx            As Long
     Dim vElem           As Variant
-    Dim dblCurrent      As Double
-    Dim dblTotal        As Double
-    Dim dblLeft         As Double
-    Dim dblTop          As Double
+    Dim sngCurrent      As Single
+    Dim sngTotal        As Single
+    Dim sngLeft         As Single
+    Dim sngTop          As Single
     
     On Error GoTo EH
     For lIdx = 0 To UBound(m_cButtonRows)
-        dblTotal = 0
+        sngTotal = 0
         For Each vElem In m_cButtonRows(lIdx)
-            dblTotal = dblTotal + vElem(1)
+            sngTotal = sngTotal + vElem(1)
         Next
-        dblCurrent = 0
+        sngCurrent = 0
         For Each vElem In m_cButtonRows(lIdx)
-            dblLeft = AlignOrigTwipsToPix(dblCurrent * ScaleWidth / dblTotal)
-            dblTop = AlignOrigTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
-            MoveCtl btn(vElem(0)), dblLeft, dblTop, _
-                AlignOrigTwipsToPix((dblCurrent + vElem(1)) * ScaleWidth / dblTotal - dblLeft), _
-                AlignOrigTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1) - dblTop)
-            dblCurrent = dblCurrent + vElem(1)
+            sngLeft = AlignOrigTwipsToPix(sngCurrent * ScaleWidth / sngTotal)
+            sngTop = AlignOrigTwipsToPix(lIdx * ScaleHeight / (UBound(m_cButtonRows) + 1))
+            MoveCtl btn(vElem(0)), sngLeft, sngTop, _
+                AlignOrigTwipsToPix((sngCurrent + vElem(1)) * ScaleWidth / sngTotal - sngLeft), _
+                AlignOrigTwipsToPix((lIdx + 1) * ScaleHeight / (UBound(m_cButtonRows) + 1) - sngTop)
+            sngCurrent = sngCurrent + vElem(1)
         Next
     Next
     Exit Sub
@@ -517,8 +544,8 @@ Private Function pvPrepareForeground(hFore As Long) As Boolean
     Dim hAttributes     As Long
     
     On Error GoTo EH
-    lWidth = Int(ScaleWidth / OrigTwipsPerPixelX + 0.5)
-    lHeight = Int(ScaleHeight / OrigTwipsPerPixelX + 0.5)
+    lWidth = Int(ScaleWidth / OrigTwipsPerPixelX + 0.5!)
+    lHeight = Int(ScaleHeight / OrigTwipsPerPixelY + 0.5!)
     If hFore <> 0 Then
         Call GdipDisposeImage(hFore)
         hFore = 0
@@ -548,7 +575,7 @@ Private Function pvPrepareForeground(hFore As Long) As Boolean
     If Not pvPrepareAttribs(0.15, hAttributes) Then
         GoTo QH
     End If
-    If GdipDrawImageRectRect(hGraphics, hBitmap, lWidth * -0.25, lHeight * -0.25, lWidth * 1.5, lHeight * 1.5, 0, 0, sngWidth, sngHeight, , hAttributes) <> 0 Then
+    If GdipDrawImageRectRect(hGraphics, hBitmap, lWidth * -0.25!, lHeight * -0.25!, lWidth * 1.5!, lHeight * 1.5!, 0, 0, sngWidth, sngHeight, , hAttributes) <> 0 Then
         GoTo QH
     End If
 QH:
@@ -609,9 +636,20 @@ EH:
 End Function
 
 Private Sub pvPrepareFontAwesome()
+    Dim bHasGlobal      As Boolean
+    
     If Not m_oFont Is Nothing Then
-        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-regular-400.ttf")), m_oFont.Size, m_hAwesomeRegular, m_hAwesomeColRegular
-        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-solid-900.ttf")), m_oFont.Size, m_hAwesomeSolid, m_hAwesomeColSolid
+        If m_hFontAwesomeColRegular = 0 Then
+            m_hFontAwesomeColRegular = pvNppGlobalData("FontAwesomeRegular")
+            m_hFontAwesomeColSolid = pvNppGlobalData("FontAwesomeSolid")
+            bHasGlobal = (m_hFontAwesomeColRegular <> 0)
+        End If
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-regular-400.ttf")), m_oFont.Size, m_hFontAwesomeRegular, m_hFontAwesomeColRegular
+        GdipPreparePrivateFont LocateFile(PathCombine(App.Path, "External\fa-solid-900.ttf")), m_oFont.Size, m_hFontAwesomeSolid, m_hFontAwesomeColSolid
+        If Not bHasGlobal Then
+            pvNppGlobalData("FontAwesomeRegular") = m_hFontAwesomeColRegular
+            pvNppGlobalData("FontAwesomeSolid") = m_hFontAwesomeColSolid
+        End If
     End If
 End Sub
 
@@ -700,8 +738,8 @@ Private Function At(Data As Variant, ByVal Index As Long, Optional Default As St
 QH:
 End Function
 
-Private Function AlignOrigTwipsToPix(ByVal dblTwips As Double) As Double
-    AlignOrigTwipsToPix = Int(dblTwips / OrigTwipsPerPixelX + 0.5) * OrigTwipsPerPixelX
+Private Function AlignOrigTwipsToPix(ByVal sngTwips As Single) As Single
+    AlignOrigTwipsToPix = Int(sngTwips / OrigTwipsPerPixelX + 0.5!) * OrigTwipsPerPixelX
 End Function
 
 Private Function IconScale(ByVal sngSize As Single) As Long
@@ -921,10 +959,10 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
     With btn(Index)
         lLeft = .Left \ ScreenTwipsPerPixelX
         lTop = .Top \ ScreenTwipsPerPixelY
-        lWidth = Int(.Width / OrigTwipsPerPixelX + 0.5)
-        lHeight = Int(.Height / OrigTwipsPerPixelY + 0.5)
+        lWidth = Int(.Width / OrigTwipsPerPixelX + 0.5!)
+        lHeight = Int(.Height / OrigTwipsPerPixelY + 0.5!)
     End With
-    If m_hAwesomeRegular <> 0 And m_hAwesomeSolid <> 0 Then
+    If m_hFontAwesomeRegular <> 0 And m_hFontAwesomeSolid <> 0 Then
         With uRect
             .Left = ClientLeft + IconScale(BUTTON_RADIUS)
             .Top = ClientTop + IconScale(BUTTON_RADIUS)
@@ -938,17 +976,17 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
                 bShift = Not bShift
             End If
             sText = ChrW$(FA_ARROW_ALT_CIRCLE_UP)
-            hTextFont = IIf(bShift, m_hAwesomeSolid, m_hAwesomeRegular)
+            hTextFont = IIf(bShift, m_hFontAwesomeSolid, m_hFontAwesomeRegular)
         Case "<="
             sText = ChrW$(FA_BACKSPACE)
-            hTextFont = m_hAwesomeSolid
+            hTextFont = m_hFontAwesomeSolid
         Case "keyb"
             sText = ChrW$(FA_KEYBOARD)
-            hTextFont = m_hAwesomeRegular
+            hTextFont = m_hFontAwesomeRegular
         Case "Done", "Готово"
-            If uRect.Right < uRect.Bottom * 1.2 Then
+            If uRect.Right < uRect.Bottom * 1.2! Then
                 sText = ChrW$(FA_CHECK_CIRCLE)
-                hTextFont = m_hAwesomeRegular
+                hTextFont = m_hFontAwesomeRegular
             End If
         End Select
         If LenB(sText) <> 0 Then
@@ -1098,18 +1136,19 @@ EH:
 End Sub
 
 Private Sub UserControl_Resize()
-    Const FUNC_NAME     As String = "UserControl_Resize"
+    Dim lIdx            As Long
     
     On Error GoTo EH
     If m_bUseForeBitmap Then
         pvPrepareForeground m_hForeBitmap
     End If
     pvSizeLayout
-    Repaint
+    For lIdx = 1 To m_lButtonCurrent
+        btn(lIdx).Refresh
+    Next
+    UserControl.Refresh
     Exit Sub
 EH:
-    PrintError FUNC_NAME
-    Resume Next
 End Sub
 
 Private Sub UserControl_Show()
@@ -1157,21 +1196,13 @@ Private Sub UserControl_Terminate()
     For Each vElem In m_cButtonImageCache
         Call GdipDisposeImage(vElem)
     Next
-    If m_hAwesomeRegular <> 0 Then
-        Call GdipDeleteFont(m_hAwesomeRegular)
-        m_hAwesomeRegular = 0
+    If m_hFontAwesomeRegular <> 0 Then
+        Call GdipDeleteFont(m_hFontAwesomeRegular)
+        m_hFontAwesomeRegular = 0
     End If
-    If m_hAwesomeColRegular <> 0 Then
-        Call GdipDeletePrivateFontCollection(m_hAwesomeColRegular)
-        m_hAwesomeColRegular = 0
-    End If
-    If m_hAwesomeSolid <> 0 Then
-        Call GdipDeleteFont(m_hAwesomeSolid)
-        m_hAwesomeSolid = 0
-    End If
-    If m_hAwesomeColSolid <> 0 Then
-        Call GdipDeletePrivateFontCollection(m_hAwesomeColSolid)
-        m_hAwesomeColSolid = 0
+    If m_hFontAwesomeSolid <> 0 Then
+        Call GdipDeleteFont(m_hFontAwesomeSolid)
+        m_hFontAwesomeSolid = 0
     End If
     If m_hForeBitmap <> 0 Then
         Call GdipDisposeImage(m_hForeBitmap)

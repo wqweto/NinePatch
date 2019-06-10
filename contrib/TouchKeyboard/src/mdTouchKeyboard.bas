@@ -234,17 +234,17 @@ Private Function pvBlurChannel( _
     Dim dblPostScale    As Double
 
     ' Prep some IIR-specific values
-    dblTemp = Sqr(-(dblRadius * dblRadius) / (2 * Log(1# / 255#)))
+    dblTemp = Sqr(-(dblRadius * dblRadius) / (2 * Log(1 / 255)))
     If dblTemp <= 0 Then
         dblTemp = 0.01
     End If
-    dblTemp = dblTemp * (1# + (0.3165 * NUM_ITERS + 0.5695) / ((NUM_ITERS + 0.7818) * (NUM_ITERS + 0.7818)))
-    dblTemp = (dblTemp * dblTemp) / (2# * NUM_ITERS)
-    dblNu = (1# + 2# * dblTemp - Sqr(1# + 4# * dblTemp)) / (2# * dblTemp)
-    dblBndryScale = (1# / (1# - dblNu))
-    dblPostScale = ((dblNu / dblTemp) ^ (2# * NUM_ITERS)) * 255#
+    dblTemp = dblTemp * (1 + (0.3165 * NUM_ITERS + 0.5695) / ((NUM_ITERS + 0.7818) * (NUM_ITERS + 0.7818)))
+    dblTemp = (dblTemp * dblTemp) / (2 * NUM_ITERS)
+    dblNu = (1 + 2 * dblTemp - Sqr(1 + 4 * dblTemp)) / (2 * dblTemp)
+    dblBndryScale = (1 / (1 - dblNu))
+    dblPostScale = ((dblNu / dblTemp) ^ (2 * NUM_ITERS)) * 255
     ' Copy the contents of the incoming byte array into the double array buffer
-    LoadSave dblBuffer(0, 0), 1# / 255#, lpBits + (lTop * lStride + lLeft) * 4 + lChannel, lStride, lWidth, lHeight, 0
+    LoadSave dblBuffer(0, 0), 1 / 255, lpBits + (lTop * lStride + lLeft) * 4 + lChannel, lStride, lWidth, lHeight, 0
     ' Filter horizontally along each row
     For lIdx = 0 To lHeight - 1
         For lIter = 1 To NUM_ITERS
@@ -334,11 +334,15 @@ Public Function GdipPreparePrivateFont(sFileName As String, ByVal lFontSize As L
     Dim lNumFamilies    As Long
     Dim hNewFont        As Long
     
-    If GdipNewPrivateFontCollection(hNewFontCol) <> 0 Then
-        GoTo QH
-    End If
-    If GdipPrivateAddFontFile(hNewFontCol, StrPtr(sFileName)) <> 0 Then
-        GoTo QH
+    If hFontCollection = 0 Then
+        If GdipNewPrivateFontCollection(hNewFontCol) <> 0 Then
+            GoTo QH
+        End If
+        If GdipPrivateAddFontFile(hNewFontCol, StrPtr(sFileName)) <> 0 Then
+            GoTo QH
+        End If
+    Else
+        hNewFontCol = hFontCollection
     End If
     If GdipGetFontCollectionFamilyList(hNewFontCol, 1, hFamily, lNumFamilies) <> 0 Or lNumFamilies = 0 Then
         GoTo QH
@@ -352,7 +356,7 @@ Public Function GdipPreparePrivateFont(sFileName As String, ByVal lFontSize As L
     End If
     hFont = hNewFont
     hNewFont = 0
-    If hFontCollection <> 0 Then
+    If hFontCollection <> 0 And hFontCollection <> hNewFontCol Then
         Call GdipDeletePrivateFontCollection(hFontCollection)
     End If
     hFontCollection = hNewFontCol
@@ -364,7 +368,7 @@ QH:
         Call GdipDeleteFont(hNewFont)
         hNewFont = 0
     End If
-    If hNewFontCol <> 0 Then
+    If hNewFontCol <> 0 And hFontCollection <> hNewFontCol Then
         Call GdipDeletePrivateFontCollection(hNewFontCol)
         hNewFontCol = 0
     End If
@@ -623,7 +627,7 @@ Private Function pvHSBToRGB(hsbColor As UcsHsbColor) As Long
     Call CopyMemory(pvHSBToRGB, rgbColor, 4)
 End Function
 
-Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
+Private Function pvRGBToHSB(ByVal clrValue As Long) As UcsHsbColor
     Dim rgbColor        As UcsRgbQuad
     Dim lMin            As Long
     Dim lMax            As Long
@@ -663,7 +667,7 @@ Private Function pvRGBToHSB(ByVal clrValue As OLE_COLOR) As UcsHsbColor
     End With
 End Function
 
-Private Function Ceil(ByVal Value As Double) As Double
+Private Function Ceil(ByVal Value As Single) As Single
     Ceil = -Int(CStr(-Value))
 End Function
 
