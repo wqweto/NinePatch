@@ -109,6 +109,7 @@ Private Declare Function CreateDIBSection Lib "gdi32" (ByVal hDC As Long, lpBits
 Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVal hWnd As Long) As Long
 Private Declare Function GetEnvironmentVariable Lib "kernel32" Alias "GetEnvironmentVariableA" (ByVal lpName As String, ByVal lpBuffer As String, ByVal nSize As Long) As Long
 Private Declare Function SetEnvironmentVariable Lib "kernel32" Alias "SetEnvironmentVariableA" (ByVal lpName As String, ByVal lpValue As String) As Long
+Private Declare Function AlphaBlend Lib "msimg32" (ByVal hDestDC As Long, ByVal lX As Long, ByVal lY As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal widthSrc As Long, ByVal heightSrc As Long, ByVal blendFunct As Long) As Boolean
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, ByVal Scan0 As Long, hBitmap As Long) As Long
@@ -211,11 +212,12 @@ End Type
 Private Const DBL_EPLISON           As Double = 0.000001
 Private Const DEF_STYLE             As Long = ucsBtyNone
 Private Const DEF_ENABLED           As Boolean = True
-Private Const DEF_OPACITY           As Double = 1
-Private Const DEF_ANIMATIONDURATION As Double = 0
+Private Const DEF_OPACITY           As Single = 1
+Private Const DEF_ANIMATIONDURATION As Single = 0
 Private Const DEF_FORECOLOR         As Long = vbButtonText
 Private Const DEF_MANUALFOCUS       As Boolean = False
 Private Const DEF_MASKCOLOR         As Long = vbMagenta
+Private Const DEF_AUTOREDRAW        As Boolean = False
 Private Const DEF_TEXTOPACITY       As Single = 1
 Private Const DEF_TEXTCOLOR         As Long = -1  '--- none
 Private Const DEF_TEXTFLAGS         As Long = ucsBflCenter
@@ -235,6 +237,7 @@ Private m_clrFore               As Long
 Private m_bManualFocus          As Boolean
 Private m_oPicture              As StdPicture
 Private m_clrMask               As OLE_COLOR
+Private m_bAutoRedraw           As Boolean
 '--- run-time
 Private m_eState                As UcsNineButtonStateEnum
 Private m_hPrevBitmap           As Long
@@ -255,7 +258,9 @@ Private m_hFont                 As Long
 Private m_bShown                As Boolean
 Private m_hPictureBitmap        As Long
 Private m_hPictureAttributes    As Long
+Private m_eContainerScaleMode   As ScaleModeConstants
 Private m_pTimer                As IUnknown
+Private m_hRedrawDib            As Long
 '--- debug
 Private m_sInstanceName         As String
 #If DebugMode Then
@@ -324,7 +329,7 @@ Property Let Style(ByVal eValue As UcsNineButtonStyleEnum)
     If m_eStyle <> eValue Then
         m_eStyle = eValue
         pvSetStyle eValue
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -349,7 +354,7 @@ End Property
 Property Let Opacity(ByVal sngValue As Single)
     If m_sngOpacity <> sngValue Then
         m_sngOpacity = sngValue
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -371,7 +376,7 @@ End Property
 Property Let Caption(sValue As String)
     If m_sCaption <> sValue Then
         m_sCaption = sValue
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -385,7 +390,7 @@ Property Set Font(oValue As StdFont)
     If Not m_oFont Is oValue Then
         Set m_oFont = oValue
         pvPrepareFont m_oFont, m_hFont
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -398,7 +403,7 @@ End Property
 Property Let ForeColor(ByVal clrValue As OLE_COLOR)
     If m_clrFore <> clrValue Then
         m_clrFore = clrValue
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -420,7 +425,7 @@ Property Set Picture(oValue As StdPicture)
     If Not m_oPicture Is oValue Then
         Set m_oPicture = oValue
         pvPreparePicture m_oPicture, m_clrMask, m_hPictureBitmap, m_hPictureAttributes
-        pvRepaint
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -433,7 +438,19 @@ Property Let MaskColor(ByVal clrValue As OLE_COLOR)
     If m_clrMask <> clrValue Then
         m_clrMask = clrValue
         pvPreparePicture m_oPicture, m_clrMask, m_hPictureBitmap, m_hPictureAttributes
-        pvRepaint
+        pvRefresh
+        PropertyChanged
+    End If
+End Property
+
+Property Get AutoRedraw() As Boolean
+    AutoRedraw = m_bAutoRedraw
+End Property
+
+Property Let AutoRedraw(ByVal bValue As Boolean)
+    If m_bAutoRedraw <> bValue Then
+        m_bAutoRedraw = bValue
+        pvRefresh
         PropertyChanged
     End If
 End Property
@@ -482,7 +499,7 @@ Property Let ButtonImageArray(Optional ByVal eState As UcsNineButtonStateEnum = 
     Else
         Set m_uButton(eState).ImagePatch = Nothing
     End If
-    pvRepaint
+    pvRefresh
 End Property
 
 Property Get ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Long
@@ -510,7 +527,7 @@ Property Let ButtonImageBitmap(Optional ByVal eState As UcsNineButtonStateEnum =
     Else
         Set m_uButton(eState).ImagePatch = Nothing
     End If
-    pvRepaint
+    pvRefresh
 End Property
 
 Property Get ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
@@ -526,7 +543,7 @@ Property Let ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum 
     End If
     If m_uButton(eState).ImageOpacity <> sngValue Then
         m_uButton(eState).ImageOpacity = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -543,7 +560,7 @@ Property Set ButtonTextFont(Optional ByVal eState As UcsNineButtonStateEnum = -1
     End If
     If Not m_uButton(eState).TextFont Is oValue Then
         Set m_uButton(eState).TextFont = oValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -560,7 +577,7 @@ Property Let ButtonTextFlags(Optional ByVal eState As UcsNineButtonStateEnum = -
     End If
     If m_uButton(eState).TextFlags <> eValue Then
         m_uButton(eState).TextFlags = eValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -577,7 +594,7 @@ Property Let ButtonTextColor(Optional ByVal eState As UcsNineButtonStateEnum = -
     End If
     If m_uButton(eState).TextColor <> clrValue Then
         m_uButton(eState).TextColor = clrValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -594,7 +611,7 @@ Property Let ButtonTextOpacity(Optional ByVal eState As UcsNineButtonStateEnum =
     End If
     If m_uButton(eState).TextOpacity <> sngValue Then
         m_uButton(eState).TextOpacity = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -611,7 +628,7 @@ Property Let ButtonTextOffsetX(Optional ByVal eState As UcsNineButtonStateEnum =
     End If
     If m_uButton(eState).TextOffsetX <> sngValue Then
         m_uButton(eState).TextOffsetX = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -628,7 +645,7 @@ Property Let ButtonTextOffsetY(Optional ByVal eState As UcsNineButtonStateEnum =
     End If
     If m_uButton(eState).TextOffsetY <> sngValue Then
         m_uButton(eState).TextOffsetY = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -645,7 +662,7 @@ Property Let ButtonShadowColor(Optional ByVal eState As UcsNineButtonStateEnum =
     End If
     If m_uButton(eState).ShadowColor <> clrValue Then
         m_uButton(eState).ShadowColor = clrValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -662,7 +679,7 @@ Property Let ButtonShadowOpacity(Optional ByVal eState As UcsNineButtonStateEnum
     End If
     If m_uButton(eState).ShadowOpacity <> sngValue Then
         m_uButton(eState).ShadowOpacity = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -679,7 +696,7 @@ Property Let ButtonShadowOffsetX(Optional ByVal eState As UcsNineButtonStateEnum
     End If
     If m_uButton(eState).ShadowOffsetX <> sngValue Then
         m_uButton(eState).ShadowOffsetX = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -696,7 +713,7 @@ Property Let ButtonShadowOffsetY(Optional ByVal eState As UcsNineButtonStateEnum
     End If
     If m_uButton(eState).ShadowOffsetY <> sngValue Then
         m_uButton(eState).ShadowOffsetY = sngValue
-        pvRepaint
+        pvRefresh
     End If
 End Property
 
@@ -740,7 +757,38 @@ End Property
 '=========================================================================
 
 Public Sub Refresh()
+    Const FUNC_NAME     As String = "Refresh"
+    Dim hMemDC          As Long
+    Dim hPrevDib        As Long
+    
+    On Error GoTo EH
+    If m_hRedrawDib <> 0 Then
+        Call DeleteObject(m_hRedrawDib)
+        m_hRedrawDib = 0
+    End If
+    If AutoRedraw Then
+        hMemDC = CreateCompatibleDC(0)
+        If hMemDC = 0 Then
+            GoTo QH
+        End If
+        If Not pvCreateDib(hMemDC, ScaleWidth, ScaleHeight, m_hRedrawDib) Then
+            GoTo QH
+        End If
+        hPrevDib = SelectObject(hMemDC, m_hRedrawDib)
+        pvPaintControl hMemDC
+    End If
     UserControl.Refresh
+QH:
+    On Error Resume Next
+    If hMemDC <> 0 Then
+        Call SelectObject(hMemDC, hPrevDib)
+        Call DeleteDC(hMemDC)
+        hMemDC = 0
+    End If
+    Exit Sub
+EH:
+    PrintError FUNC_NAME
+    Resume QH
 End Sub
 
 Public Sub Repaint()
@@ -750,7 +798,7 @@ Public Sub Repaint()
     If m_bShown Then
         pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
         pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
-        UserControl.Refresh
+        Refresh
 '        Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
     End If
     Exit Sub
@@ -1253,7 +1301,7 @@ EH:
     Resume Next
 End Function
 
-Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Single, ByVal sngOpacity2 As Single) As Boolean
+Private Function pvAnimateState(ByVal dblElapsed As Double, ByVal sngOpacity1 As Single, ByVal sngOpacity2 As Single) As Boolean
     Const FUNC_NAME     As String = "pvAnimateState"
     Dim sngOpacity      As Single
     Dim dblFull         As Double
@@ -1269,7 +1317,7 @@ Private Function pvAnimateState(dblElapsed As Double, ByVal sngOpacity1 As Singl
     If Not pvPrepareAttribs(sngOpacity, m_hAttributes) Then
         GoTo QH
     End If
-    UserControl.Refresh
+    Refresh
     If m_sngBitmapAlpha < 1 Then
         Set m_pTimer = InitFireOnceTimerThunk(Me, pvAddressOfTimerProc.TimerProc)
     End If
@@ -1424,13 +1472,97 @@ End Function
 
 Public Sub pvRefresh()
     m_bShown = False
-    Refresh
+    If m_hRedrawDib <> 0 Then
+        Call DeleteObject(m_hRedrawDib)
+        m_hRedrawDib = 0
+    End If
+    UserControl.Refresh
 End Sub
 
-Public Sub pvRepaint()
-    m_bShown = False
-    Repaint
-End Sub
+Private Function pvPaintControl(ByVal hDC As Long) As Boolean
+    Const FUNC_NAME     As String = "pvPaintControl"
+    Dim hGraphics       As Long
+    Dim hMergeBitmap    As Long
+    Dim lSrcAlpha       As Long
+    
+    On Error GoTo EH
+    If Not m_bShown Then
+        m_bShown = True
+        pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
+        pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
+    End If
+    If m_hBitmap <> 0 Then
+        If m_hPrevBitmap <> 0 Then
+            lSrcAlpha = Int(m_sngBitmapAlpha * 255 + 0.5!)
+            If lSrcAlpha < 255 Then
+                If GdipCloneImage(m_hPrevBitmap, hMergeBitmap) <> 0 Then
+                    GoTo QH
+                End If
+                If lSrcAlpha > 0 Then
+                    If Not pvMergeBitmap(hMergeBitmap, m_hBitmap, 255 - lSrcAlpha, lSrcAlpha) Then
+                        GoTo QH
+                    End If
+                End If
+            End If
+        End If
+        If GdipCreateFromHDC(hDC, hGraphics) <> 0 Then
+            GoTo QH
+        End If
+        If m_hFocusBitmap <> 0 Then
+            If GdipDrawImageRectRect(hGraphics, m_hFocusBitmap, 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hFocusAttributes) <> 0 Then
+                GoTo QH
+            End If
+        End If
+        If GdipDrawImageRectRect(hGraphics, IIf(hMergeBitmap <> 0, hMergeBitmap, m_hBitmap), 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hAttributes) <> 0 Then
+            GoTo QH
+        End If
+    Else
+        Line (0, 0)-(ScaleWidth - 1, ScaleHeight - 1), &HE0FFFF, BF
+    End If
+    '--- success
+    pvPaintControl = True
+QH:
+    On Error Resume Next
+    If hGraphics <> 0 Then
+        Call GdipDeleteGraphics(hGraphics)
+        hGraphics = 0
+    End If
+    If hMergeBitmap <> 0 Then
+        Call GdipDisposeImage(hMergeBitmap)
+        hMergeBitmap = 0
+    End If
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
+
+Private Function pvCreateDib(ByVal hMemDC As Long, ByVal lWidth As Long, ByVal lHeight As Long, hDib As Long) As Boolean
+    Const FUNC_NAME     As String = "pvCreateDib"
+    Dim uHdr            As BITMAPINFOHEADER
+    Dim lpBits          As Long
+    
+    On Error GoTo EH
+    With uHdr
+        .biSize = Len(uHdr)
+        .biPlanes = 1
+        .biBitCount = 32
+        .biWidth = lWidth
+        .biHeight = -lHeight
+        .biSizeImage = 4 * lWidth * lHeight
+    End With
+    hDib = CreateDIBSection(hMemDC, uHdr, DIB_RGB_COLORS, lpBits, 0, 0)
+    If hDib = 0 Then
+        GoTo QH
+    End If
+    '--- success
+    pvCreateDib = True
+QH:
+    Exit Function
+EH:
+    PrintError FUNC_NAME
+    Resume QH
+End Function
 
 #If Not ImplUseShared Then
 Private Property Get TimerEx() As Double
@@ -1442,8 +1574,29 @@ Private Property Get TimerEx() As Double
     TimerEx = cValue / cFreq
 End Property
 
-Private Function HM2Pix(ByVal Value As Double) As Long
-   HM2Pix = Int(Value * 1440 / 2540 / Screen.TwipsPerPixelX + 0.5)
+Private Function HM2Pix(ByVal Value As Single) As Long
+   HM2Pix = Int(Value * 1440 / 2540 / Screen.TwipsPerPixelX + 0.5!)
+End Function
+
+Private Function ToScaleMode(sScaleUnits As String) As ScaleModeConstants
+    Select Case sScaleUnits
+    Case "Twip"
+        ToScaleMode = vbTwips
+    Case "Point"
+        ToScaleMode = vbPoints
+    Case "Pixel"
+        ToScaleMode = vbPixels
+    Case "Character"
+        ToScaleMode = vbCharacters
+    Case "Centimeter"
+        ToScaleMode = vbCentimeters
+    Case "Millimeter"
+        ToScaleMode = vbMillimeters
+    Case "Inch"
+        ToScaleMode = vbInches
+    Case Else
+        ToScaleMode = vbTwips
+    End Select
 End Function
 
 Private Function InitAddressOfMethod(pObj As Object, ByVal MethodParamCount As Long) As Object
@@ -1531,8 +1684,14 @@ End Property
 
 Private Sub m_oFont_FontChanged(ByVal PropertyName As String)
     pvPrepareFont m_oFont, m_hFont
-    pvRepaint
+    pvRefresh
     PropertyChanged
+End Sub
+
+Private Sub UserControl_AmbientChanged(PropertyName As String)
+    If PropertyName = "ScaleUnits" Then
+        m_eContainerScaleMode = ToScaleMode(Ambient.ScaleUnits)
+    End If
 End Sub
 
 Private Sub UserControl_HitTest(X As Single, Y As Single, HitResult As Integer)
@@ -1568,7 +1727,7 @@ Private Sub UserControl_KeyUp(KeyCode As Integer, Shift As Integer)
 End Sub
 
 Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
-    RaiseEvent MouseDown(Button, Shift, X, Y)
+    RaiseEvent MouseDown(Button, Shift, ScaleX(X, ScaleMode, m_eContainerScaleMode), ScaleY(Y, ScaleMode, m_eContainerScaleMode))
     pvHandleMouseDown Button, Shift, X, Y
 End Sub
 
@@ -1576,7 +1735,7 @@ Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Sing
     Const FUNC_NAME     As String = "UserControl_MouseMove"
     
     On Error GoTo EH
-    RaiseEvent MouseMove(Button, Shift, X, Y)
+    RaiseEvent MouseMove(Button, Shift, ScaleX(X, ScaleMode, m_eContainerScaleMode), ScaleY(Y, ScaleMode, m_eContainerScaleMode))
     If Button = -1 Then
         GoTo QH
     End If
@@ -1601,15 +1760,16 @@ Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single
     Const FUNC_NAME     As String = "UserControl_MouseUp"
     
     On Error GoTo EH
-    RaiseEvent MouseUp(Button, Shift, X, Y)
+    RaiseEvent MouseUp(Button, Shift, ScaleX(X, ScaleMode, m_eContainerScaleMode), ScaleY(Y, ScaleMode, m_eContainerScaleMode))
     If Button = -1 Then
         GoTo QH
     End If
     If (Button And vbLeftButton) <> 0 Then
         pvState(ucsBstPressed) = False
     End If
-    If X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
+    If Button <> 0 And X >= 0 And X < ScaleWidth And Y >= 0 And Y < ScaleHeight Then
         If (m_nDownButton And Button And vbLeftButton) <> 0 Then
+            Call ApiUpdateWindow(ContainerHwnd) '--- pump WM_PAINT
             RaiseEvent Click
         ElseIf (m_nDownButton And Button And vbRightButton) <> 0 Then
             RaiseEvent ContextMenu
@@ -1632,53 +1792,38 @@ End Sub
 
 Private Sub UserControl_Paint()
     Const FUNC_NAME     As String = "UserControl_Paint"
-    Dim hGraphics       As Long
-    Dim hMergeBitmap    As Long
-    Dim lSrcAlpha       As Long
+    Const AC_SRC_ALPHA  As Long = 1
+    Const Opacity       As Long = &HFF
+    Dim hMemDC          As Long
+    Dim hPrevDib        As Long
     
     On Error GoTo EH
-    If Not m_bShown Then
-        m_bShown = True
-        pvPrepareBitmap m_eState, m_hFocusBitmap, m_hBitmap
-        pvPrepareAttribs m_sngOpacity * m_uButton(pvGetEffectiveState(m_eState)).ImageOpacity, m_hAttributes
-    End If
-    If m_hBitmap <> 0 Then
-        If m_hPrevBitmap <> 0 Then
-            lSrcAlpha = Int(m_sngBitmapAlpha * 255 + 0.5)
-            If lSrcAlpha < 255 Then
-                If GdipCloneImage(m_hPrevBitmap, hMergeBitmap) <> 0 Then
-                    GoTo QH
-                End If
-                If lSrcAlpha > 0 Then
-                    If Not pvMergeBitmap(hMergeBitmap, m_hBitmap, 255 - lSrcAlpha, lSrcAlpha) Then
-                        GoTo QH
-                    End If
-                End If
-            End If
-        End If
-        If GdipCreateFromHDC(hDC, hGraphics) <> 0 Then
+    If AutoRedraw Then
+        hMemDC = CreateCompatibleDC(hDC)
+        If hMemDC = 0 Then
             GoTo QH
         End If
-        If m_hFocusBitmap <> 0 Then
-            If GdipDrawImageRectRect(hGraphics, m_hFocusBitmap, 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hFocusAttributes) <> 0 Then
+        If m_hRedrawDib = 0 Then
+            If Not pvCreateDib(hMemDC, ScaleWidth, ScaleHeight, m_hRedrawDib) Then
                 GoTo QH
             End If
+            hPrevDib = SelectObject(hMemDC, m_hRedrawDib)
+            If Not pvPaintControl(hMemDC) Then
+                GoTo QH
+            End If
+        Else
+            hPrevDib = SelectObject(hMemDC, m_hRedrawDib)
         End If
-        If GdipDrawImageRectRect(hGraphics, IIf(hMergeBitmap <> 0, hMergeBitmap, m_hBitmap), 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hAttributes) <> 0 Then
-            GoTo QH
-        End If
+        Call AlphaBlend(hDC, 0, 0, ScaleWidth, ScaleHeight, hMemDC, 0, 0, ScaleWidth, ScaleHeight, AC_SRC_ALPHA * &H1000000 + Opacity * &H10000)
     Else
-        Line (0, 0)-(ScaleWidth - 1, ScaleHeight - 1), &HE0FFFF, BF
+        pvPaintControl hDC
     End If
 QH:
     On Error Resume Next
-    If hGraphics <> 0 Then
-        Call GdipDeleteGraphics(hGraphics)
-        hGraphics = 0
-    End If
-    If hMergeBitmap <> 0 Then
-        Call GdipDisposeImage(hMergeBitmap)
-        hMergeBitmap = 0
+    If hMemDC <> 0 Then
+        Call SelectObject(hMemDC, hPrevDib)
+        Call DeleteDC(hMemDC)
+        hMemDC = 0
     End If
     Exit Sub
 EH:
@@ -1716,6 +1861,7 @@ Private Sub UserControl_InitProperties()
     Const FUNC_NAME     As String = "UserControl_InitProperties"
     
     On Error GoTo EH
+    m_eContainerScaleMode = ToScaleMode(Ambient.ScaleUnits)
     Style = DEF_STYLE
     Enabled = DEF_ENABLED
     Opacity = DEF_OPACITY
@@ -1725,6 +1871,7 @@ Private Sub UserControl_InitProperties()
     ForeColor = DEF_FORECOLOR
     ManualFocus = DEF_MANUALFOCUS
     MaskColor = DEF_MASKCOLOR
+    AutoRedraw = DEF_AUTOREDRAW
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
     #If DebugMode Then
@@ -1741,6 +1888,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
     Const FUNC_NAME     As String = "UserControl_ReadProperties"
     
     On Error GoTo EH
+    m_eContainerScaleMode = ToScaleMode(Ambient.ScaleUnits)
     With PropBag
         Style = .ReadProperty("Style", DEF_STYLE)
         Enabled = .ReadProperty("Enabled", DEF_ENABLED)
@@ -1751,6 +1899,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         ForeColor = .ReadProperty("ForeColor", DEF_FORECOLOR)
         ManualFocus = .ReadProperty("ManualFocus", DEF_MANUALFOCUS)
         MaskColor = .ReadProperty("MaskColor", DEF_MASKCOLOR)
+        AutoRedraw = .ReadProperty("AutoRedraw", DEF_AUTOREDRAW)
     End With
     On Error GoTo QH
     m_sInstanceName = TypeName(Extender.Parent) & "." & Extender.Name
@@ -1778,6 +1927,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         .WriteProperty "ForeColor", ForeColor, DEF_FORECOLOR
         .WriteProperty "ManualFocus", ManualFocus, DEF_MANUALFOCUS
         .WriteProperty "MaskColor", MaskColor, DEF_MASKCOLOR
+        .WriteProperty "AutoRedraw", AutoRedraw, DEF_AUTOREDRAW
     End With
     Exit Sub
 EH:
@@ -1831,6 +1981,7 @@ Private Sub UserControl_Initialize()
         aInput(0) = 1
         Call GdiplusStartup(0, aInput(0))
     End If
+    m_eContainerScaleMode = vbTwips
     pvSetEmptyStyle
 End Sub
 
@@ -1866,6 +2017,10 @@ Private Sub UserControl_Terminate()
     If m_hPictureAttributes <> 0 Then
         Call GdipDisposeImageAttributes(m_hPictureAttributes)
         m_hPictureAttributes = 0
+    End If
+    If m_hRedrawDib <> 0 Then
+        Call DeleteObject(m_hRedrawDib)
+        m_hRedrawDib = 0
     End If
     Set m_pTimer = Nothing
     #If DebugMode Then
