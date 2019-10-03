@@ -91,6 +91,7 @@ Private Declare Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA"
 Private Declare Function SystemParametersInfo Lib "user32" Alias "SystemParametersInfoA" (ByVal uAction As Long, ByVal uParam As Long, ByRef lpvParam As Any, ByVal fuWinIni As Long) As Long
 Private Declare Function GetEnvironmentVariable Lib "kernel32" Alias "GetEnvironmentVariableA" (ByVal lpName As String, ByVal lpBuffer As String, ByVal nSize As Long) As Long
 Private Declare Function SetEnvironmentVariable Lib "kernel32" Alias "SetEnvironmentVariableA" (ByVal lpName As String, ByVal lpValue As String) As Long
+Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
@@ -110,7 +111,6 @@ Private Declare Function GdipDrawString Lib "gdiplus" (ByVal hGraphics As Long, 
 #If Not ImplNoIdeProtection Then
     Private Declare Function FindWindowEx Lib "user32" Alias "FindWindowExA" (ByVal hWndParent As Long, ByVal hWndChildAfter As Long, ByVal lpszClass As String, ByVal lpszWindow As String) As Long
     Private Declare Function GetWindowThreadProcessId Lib "user32" (ByVal hWnd As Long, lpdwProcessId As Long) As Long
-    Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
 #End If
 #If Not ImplUseShared Then
     '--- for thunks
@@ -320,12 +320,12 @@ Private Property Get pvNppGlobalData(sKey As String) As Long
     Dim sBuffer     As String
     
     sBuffer = String$(50, 0)
-    Call GetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    Call GetEnvironmentVariable("_NPP_GLOBAL" & GetCurrentProcessId() & "_" & sKey, sBuffer, Len(sBuffer) - 1)
     pvNppGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
 End Property
 
 Private Property Let pvNppGlobalData(sKey As String, ByVal lValue As Long)
-    Call SetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, lValue)
+    Call SetEnvironmentVariable("_NPP_GLOBAL" & GetCurrentProcessId() & "_" & sKey, lValue)
 End Property
 
 '=========================================================================
@@ -858,12 +858,12 @@ Private Property Get pvThunkGlobalData(sKey As String) As Long
     Dim sBuffer     As String
     
     sBuffer = String$(50, 0)
-    Call GetEnvironmentVariable("_MST_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    Call GetEnvironmentVariable("_MST_GLOBAL" & GetCurrentProcessId() & "_" & sKey, sBuffer, Len(sBuffer) - 1)
     pvThunkGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
 End Property
 
 Private Property Let pvThunkGlobalData(sKey As String, ByVal lValue As Long)
-    Call SetEnvironmentVariable("_MST_GLOBAL" & App.hInstance & "_" & sKey, lValue)
+    Call SetEnvironmentVariable("_MST_GLOBAL" & GetCurrentProcessId() & "_" & sKey, lValue)
 End Property
 #End If ' Not ImplUseShared
 

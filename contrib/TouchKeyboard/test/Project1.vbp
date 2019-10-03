@@ -1,6 +1,5 @@
 Type=Exe
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\..\..\..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation
-Reference=*\G{B64B59AE-8789-49B7-9BA9-0453819E63CA}#1.0#0#..\..\..\..\..\Dreem\1.5\Binn\UcsDsQuery.tlb#Unicontsoft Active Directory Query Type Library 1.0
 Class=cNinePatch; ..\..\..\src\cNinePatch.cls
 Module=mdTouchKeyboard; ..\src\mdTouchKeyboard.bas
 UserControl=..\src\ctxTouchKeyboard.ctl
