@@ -164,6 +164,7 @@ Private Declare Function ApiUpdateWindow Lib "user32" Alias "UpdateWindow" (ByVa
 Private Declare Function GetEnvironmentVariable Lib "kernel32" Alias "GetEnvironmentVariableA" (ByVal lpName As String, ByVal lpBuffer As String, ByVal nSize As Long) As Long
 Private Declare Function SetEnvironmentVariable Lib "kernel32" Alias "SetEnvironmentVariableA" (ByVal lpName As String, ByVal lpValue As String) As Long
 Private Declare Function AlphaBlend Lib "msimg32" (ByVal hDestDC As Long, ByVal lX As Long, ByVal lY As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal widthSrc As Long, ByVal heightSrc As Long, ByVal blendFunct As Long) As Boolean
+Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
 '--- gdi+
 Private Declare Function GdiplusStartup Lib "gdiplus" (hToken As Long, pInputBuf As Any, Optional ByVal pOutputBuf As Long = 0) As Long
 Private Declare Function GdipCreateBitmapFromScan0 Lib "gdiplus" (ByVal lWidth As Long, ByVal lHeight As Long, ByVal lStride As Long, ByVal lPixelFormat As Long, ByVal Scan0 As Long, hBitmap As Long) As Long
@@ -201,7 +202,6 @@ Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Lo
 #If Not ImplNoIdeProtection Then
     Private Declare Function FindWindowEx Lib "user32" Alias "FindWindowExA" (ByVal hWndParent As Long, ByVal hWndChildAfter As Long, ByVal lpszClass As String, ByVal lpszWindow As String) As Long
     Private Declare Function GetWindowThreadProcessId Lib "user32" (ByVal hWnd As Long, lpdwProcessId As Long) As Long
-    Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
 #End If
 #If Not ImplUseShared Then
     Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
@@ -1066,7 +1066,7 @@ Private Function pvPrepareBitmap(ByVal eState As UcsNineButtonStateEnum, hFocusB
     Dim sCaption        As String
     
     On Error GoTo EH
-    If (eState And ucsBstFocused) <> 0 And (eState And ucsBstHoverPressed) <> ucsBstHoverPressed Then
+    If (eState And ucsBstFocused) <> 0 And ((eState And ucsBstHoverPressed) <> ucsBstHoverPressed Or m_bManualFocus) Then
         If hFocusBitmap = 0 Then
             With m_uButton(ucsBstFocused)
                 If Not .ImagePatch Is Nothing Then
@@ -1608,12 +1608,12 @@ Private Property Get pvNppGlobalData(sKey As String) As Long
     Dim sBuffer     As String
     
     sBuffer = String$(50, 0)
-    Call GetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    Call GetEnvironmentVariable("_NPP_GLOBAL" & GetCurrentProcessId() & "_" & sKey, sBuffer, Len(sBuffer) - 1)
     pvNppGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
 End Property
 
 Private Property Let pvNppGlobalData(sKey As String, ByVal lValue As Long)
-    Call SetEnvironmentVariable("_NPP_GLOBAL" & App.hInstance & "_" & sKey, lValue)
+    Call SetEnvironmentVariable("_NPP_GLOBAL" & GetCurrentProcessId() & "_" & sKey, lValue)
 End Property
 
 Private Sub pvSetStyle(ByVal eStyle As UcsNineButtonStyleEnum)
@@ -2089,11 +2089,9 @@ Private Function pvPaintControl(ByVal hDC As Long) As Boolean
         If GdipDrawImageRectRect(hGraphics, IIf(hMergeBitmap <> 0, hMergeBitmap, m_hBitmap), 0, 0, ScaleWidth, ScaleHeight, 0, 0, ScaleWidth, ScaleHeight, , m_hAttributes) <> 0 Then
             GoTo QH
         End If
-    Else
-        Line (0, 0)-(ScaleWidth - 1, ScaleHeight - 1), &HE0FFFF, BF
+        '--- success
+        pvPaintControl = True
     End If
-    '--- success
-    pvPaintControl = True
 QH:
     On Error Resume Next
     If hGraphics <> 0 Then
@@ -2258,12 +2256,12 @@ Private Property Get pvThunkGlobalData(sKey As String) As Long
     Dim sBuffer     As String
     
     sBuffer = String$(50, 0)
-    Call GetEnvironmentVariable("_MST_GLOBAL" & App.hInstance & "_" & sKey, sBuffer, Len(sBuffer) - 1)
+    Call GetEnvironmentVariable("_MST_GLOBAL" & GetCurrentProcessId() & "_" & sKey, sBuffer, Len(sBuffer) - 1)
     pvThunkGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
 End Property
 
 Private Property Let pvThunkGlobalData(sKey As String, ByVal lValue As Long)
-    Call SetEnvironmentVariable("_MST_GLOBAL" & App.hInstance & "_" & sKey, lValue)
+    Call SetEnvironmentVariable("_MST_GLOBAL" & GetCurrentProcessId() & "_" & sKey, lValue)
 End Property
 #End If
 
@@ -2383,6 +2381,7 @@ Private Sub UserControl_Paint()
     Const FUNC_NAME     As String = "UserControl_Paint"
     Const AC_SRC_ALPHA  As Long = 1
     Const Opacity       As Long = &HFF
+    Const CLR_YELLOW    As Long = &HE0FFFF
     Dim hMemDC          As Long
     Dim hPrevDib        As Long
     
@@ -2390,22 +2389,37 @@ Private Sub UserControl_Paint()
     If AutoRedraw Then
         hMemDC = CreateCompatibleDC(hDC)
         If hMemDC = 0 Then
-            GoTo QH
+            GoTo DefPaint
         End If
         If m_hRedrawDib = 0 Then
             If Not pvCreateDib(hMemDC, ScaleWidth, ScaleHeight, m_hRedrawDib) Then
-                GoTo QH
+                GoTo DefPaint
             End If
             hPrevDib = SelectObject(hMemDC, m_hRedrawDib)
             If Not pvPaintControl(hMemDC) Then
-                GoTo QH
+                GoTo DefPaint
             End If
         Else
             hPrevDib = SelectObject(hMemDC, m_hRedrawDib)
         End If
-        Call AlphaBlend(hDC, 0, 0, ScaleWidth, ScaleHeight, hMemDC, 0, 0, ScaleWidth, ScaleHeight, AC_SRC_ALPHA * &H1000000 + Opacity * &H10000)
+        If AlphaBlend(hDC, 0, 0, ScaleWidth, ScaleHeight, hMemDC, 0, 0, ScaleWidth, ScaleHeight, AC_SRC_ALPHA * &H1000000 + Opacity * &H10000) = 0 Then
+            GoTo DefPaint
+        End If
     Else
-        pvPaintControl hDC
+        If Not pvPaintControl(hDC) Then
+            GoTo DefPaint
+        End If
+    End If
+    If False Then
+DefPaint:
+        If m_hRedrawDib <> 0 Then
+            '--- note: before deleting DIB try de-selecting from dc
+            Call SelectObject(hMemDC, hPrevDib)
+            Call DeleteObject(m_hRedrawDib)
+            m_hRedrawDib = 0
+        End If
+        Line (0, 0)-(ScaleWidth - 1, ScaleHeight - 1), CLR_YELLOW, BF
+        Line (2, 2)-(ScaleWidth - 3, ScaleHeight - 3), vbButtonShadow, B
     End If
 QH:
     On Error Resume Next
