@@ -144,6 +144,9 @@ Private Const DIB_RGB_COLORS                As Long = 0 '  color table in RGBs
 '--- for GdipBitmapLockBits
 Private Const ImageLockModeRead             As Long = &H1
 Private Const ImageLockModeWrite            As Long = &H2
+'--- for matrix order
+'Private Const MatrixOrderPrepend            As Long = 0
+Private Const MatrixOrderAppend             As Long = 1
 '--- for thunks
 Private Const MEM_COMMIT                    As Long = &H1000
 Private Const PAGE_EXECUTE_READWRITE        As Long = &H40
@@ -199,6 +202,8 @@ Private Declare Function GdipGetImageDimension Lib "gdiplus" (ByVal Image As Lon
 Private Declare Function GdipCloneImage Lib "gdiplus" (ByVal hImage As Long, hCloneImage As Long) As Long
 Private Declare Function GdipBitmapLockBits Lib "gdiplus" (ByVal hBitmap As Long, lpRect As Any, ByVal lFlags As Long, ByVal lPixelFormat As Long, uLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "gdiplus" (ByVal hBitmap As Long, uLockedBitmapData As BitmapData) As Long
+Private Declare Function GdipTranslateWorldTransform Lib "gdiplus" (ByVal hGraphics As Long, ByVal nDx As Single, ByVal nDy As Single, ByVal lOrder As Long) As Long
+Private Declare Function GdipScaleWorldTransform Lib "gdiplus" (ByVal hGraphics As Long, ByVal nSx As Single, ByVal nSy As Single, ByVal lOrder As Long) As Long
 #If Not ImplNoIdeProtection Then
     Private Declare Function FindWindowEx Lib "user32" Alias "FindWindowExA" (ByVal hWndParent As Long, ByVal hWndChildAfter As Long, ByVal lpszClass As String, ByVal lpszWindow As String) As Long
     Private Declare Function GetWindowThreadProcessId Lib "user32" (ByVal hWnd As Long, lpdwProcessId As Long) As Long
@@ -301,6 +306,7 @@ Private Const DEF_TEXTOPACITY       As Single = 1
 Private Const DEF_TEXTCOLOR         As Long = -1  '--- none
 Private Const DEF_TEXTFLAGS         As Long = ucsBflCenter
 Private Const DEF_IMAGEOPACITY      As Single = 1
+Private Const DEF_IMAGEZOOM         As Single = 1
 Private Const DEF_SHADOWOPACITY     As Single = 0.5
 Private Const DEF_SHADOWCOLOR       As Long = vbButtonShadow
 Private Const STR_RES_PNG1          As String = "iVBORw0KGgoAAAANSUhEUgAAAOcAAACfCAYAAAAChc6MAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuMjHxIGmVAAA3S0lEQVR4Xu2dCXwUVbr2vYx8cxf93fEOKkoWliRAAggkgWyQgCDigsjijsvoeBUUt1mU63cNGFlUYARDQEEUgglLQHABdCSQIAgJRBwhCZpOoqDIruNEEubjfO9T3ZWcnH4rpyrpADFVv98/TZ33eZ9uu/N4qrtOVy4QQtiCNrrha43F9eRrjcX15GuN5Vx7en8EcFPvwEVc8OCCwrZ3pO0OHTtld/yY5wtSVDCOOnRcv0vLZMGCBW1ffnVh6Euz58dPm52RooJx1KHj+r0/Aripd9CaSRWizS1TihJvmbJr0pjJBak6oLstrSgBfZyfS4uhzYuzMxKnz5o3" & _
@@ -399,6 +405,7 @@ Private Type UcsNineButtonStateType
     ImageArray()        As Byte
     ImagePatch          As cNinePatch
     ImageOpacity        As Single
+    ImageZoom           As Single
     TextFont            As StdFont
     TextFlags           As UcsNineButtonTextFlagsEnum
     TextColor           As OLE_COLOR
@@ -736,6 +743,23 @@ Property Let ButtonImageOpacity(Optional ByVal eState As UcsNineButtonStateEnum 
     End If
     If m_uButton(eState).ImageOpacity <> sngValue Then
         m_uButton(eState).ImageOpacity = sngValue
+        pvRefresh
+    End If
+End Property
+
+Property Get ButtonImageZoom(Optional ByVal eState As UcsNineButtonStateEnum = -1) As Single
+    If eState < 0 Then
+        eState = m_eState
+    End If
+    ButtonImageZoom = m_uButton(eState).ImageZoom
+End Property
+
+Property Let ButtonImageZoom(Optional ByVal eState As UcsNineButtonStateEnum = -1, ByVal sngValue As Single)
+    If eState < 0 Then
+        eState = m_eState
+    End If
+    If m_uButton(eState).ImageZoom <> sngValue Then
+        m_uButton(eState).ImageZoom = sngValue
         pvRefresh
     End If
 End Property
@@ -1103,6 +1127,17 @@ Private Function pvPrepareBitmap(ByVal eState As UcsNineButtonStateEnum, hFocusB
         End If
         If GdipSetTextRenderingHint(hGraphics, TextRenderingHintClearTypeGridFit) <> 0 Then
             GoTo QH
+        End If
+        If .ImageZoom <> 1 Then
+            If GdipTranslateWorldTransform(hGraphics, -ScaleWidth / 2, -ScaleHeight / 2, MatrixOrderAppend) <> 0 Then
+                GoTo QH
+            End If
+            If GdipScaleWorldTransform(hGraphics, .ImageZoom, .ImageZoom, MatrixOrderAppend) <> 0 Then
+                GoTo QH
+            End If
+            If GdipTranslateWorldTransform(hGraphics, ScaleWidth / 2, ScaleHeight / 2, MatrixOrderAppend) <> 0 Then
+                GoTo QH
+            End If
         End If
         If Not .ImagePatch Is Nothing Then
             If Not .ImagePatch.DrawToGraphics(hGraphics, 0, 0, ScaleWidth, ScaleHeight) Then
@@ -1921,6 +1956,7 @@ Private Sub pvSetEmptyStyle()
 
     With uEmpty
         .ImageOpacity = DEF_IMAGEOPACITY
+        .ImageZoom = DEF_IMAGEZOOM
         .TextOpacity = DEF_TEXTOPACITY
         .TextColor = DEF_TEXTCOLOR
         .TextFlags = DEF_TEXTFLAGS
