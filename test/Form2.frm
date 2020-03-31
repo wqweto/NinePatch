@@ -34,18 +34,25 @@ Begin VB.Form Form2
       Top             =   2268
       Visible         =   0   'False
       Width           =   1104
-      _extentx        =   1947
-      _extenty        =   1799
-      style           =   0
-      animationduration=   0.1
-      caption         =   "D"
-      font            =   "Form2.frx":0000
-      forecolor       =   15001582
+      _ExtentX        =   1947
+      _ExtentY        =   1799
+      AnimationDuration=   0.1
+      Caption         =   "D"
+      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
+         Name            =   "PT Sans Narrow"
+         Size            =   18
+         Charset         =   204
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   15001582
    End
    Begin VB.Image Image1 
       Height          =   480
       Left            =   7644
-      Picture         =   "Form2.frx":0030
+      Picture         =   "Form2.frx":0000
       Top             =   420
       Visible         =   0   'False
       Width           =   720
