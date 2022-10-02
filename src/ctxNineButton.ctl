@@ -23,7 +23,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '=========================================================================
 '
-' Nine Patch PNGs for VB6 (c) 2018-2019 by wqweto@gmail.com
+' Nine Patch PNGs for VB6 (c) 2018-2022 by wqweto@gmail.com
 '
 ' ctxNineButton.ctl -- windowless 9-patch button control w/ state animation
 '
@@ -59,6 +59,12 @@ Event MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
 Attribute MouseMove.VB_UserMemId = -606
 Event MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
 Attribute MouseUp.VB_UserMemId = -607
+Event OLECompleteDrag(Effect As Long)
+Event OLEDragDrop(Data As Object, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
+Event OLEDragOver(Data As Object, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)
+Event OLEGiveFeedback(Effect As Long, DefaultCursors As Boolean)
+Event OLESetData(Data As Object, DataFormat As Integer)
+Event OLEStartDrag(Data As Object, AllowedEffects As Long)
 
 '=========================================================================
 ' Public enums
@@ -124,6 +130,11 @@ Public Enum UcsNineButtonStyleEnum
     ucsBtyCardWarning
     ucsBtyCardPurple
     ucsBtyCardFocus
+End Enum
+
+Public Enum UcsNineButtonOleDropMode
+    ucsModNone
+    ucsModManual
 End Enum
 
 '=========================================================================
@@ -662,6 +673,15 @@ End Property
 Property Let ButtonState(ByVal eState As UcsNineButtonStateEnum)
     pvState(m_eState And Not eState) = False
     pvState(eState And Not m_eState) = True
+    PropertyChanged
+End Property
+
+Property Get OLEDropMode() As UcsNineButtonOleDropMode
+    OLEDropMode = UserControl.OLEDropMode
+End Property
+
+Property Let OLEDropMode(ByVal eValue As UcsNineButtonOleDropMode)
+    UserControl.OLEDropMode = eValue
     PropertyChanged
 End Property
 
@@ -2494,6 +2514,30 @@ Private Sub UserControl_ExitFocus()
 EH:
     PrintError FUNC_NAME
     Resume Next
+End Sub
+
+Private Sub UserControl_OLECompleteDrag(Effect As Long)
+    RaiseEvent OLECompleteDrag(Effect)
+End Sub
+
+Private Sub UserControl_OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
+    RaiseEvent OLEDragDrop(Data, Effect, Button, Shift, X, Y)
+End Sub
+
+Private Sub UserControl_OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)
+    RaiseEvent OLEDragOver(Data, Effect, Button, Shift, X, Y, State)
+End Sub
+
+Private Sub UserControl_OLEGiveFeedback(Effect As Long, DefaultCursors As Boolean)
+    RaiseEvent OLEGiveFeedback(Effect, DefaultCursors)
+End Sub
+
+Private Sub UserControl_OLESetData(Data As DataObject, DataFormat As Integer)
+    RaiseEvent OLESetData(Data, DataFormat)
+End Sub
+
+Private Sub UserControl_OLEStartDrag(Data As DataObject, AllowedEffects As Long)
+    RaiseEvent OLEStartDrag(Data, AllowedEffects)
 End Sub
 
 Private Sub UserControl_InitProperties()
