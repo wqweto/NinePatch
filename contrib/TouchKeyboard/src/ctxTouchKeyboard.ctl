@@ -983,7 +983,7 @@ Private Sub btn_OwnerDraw(Index As Integer, ByVal hGraphics As Long, ByVal hFont
         Case "keyb"
             sText = ChrW$(FA_KEYBOARD)
             hTextFont = m_hFontAwesomeRegular
-        Case "Done", "Готово"
+        Case "Done", "Р“РѕС‚РѕРІРѕ"
             If uRect.Right < uRect.Bottom * 1.2! Then
                 sText = ChrW$(FA_CHECK_CIRCLE)
                 hTextFont = m_hFontAwesomeRegular

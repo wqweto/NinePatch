@@ -109,29 +109,29 @@ Private Const STR_EN_LAYOUT2         As String = "Q W E R T Y U I O P <=||D " & 
                                                 "^^||L|N Z X C V B N M ! ? ^^|1.25|L " & _
                                                 "?!123|1.5|D|N BG|1.5|D space|6 ?!123|1.25|D keyb||D"
 Private Const STR_EN_LAYOUT3         As String = "1 2 3 4 5 6 7 8 9 0 <=||D " & _
-                                                "|0.5|S|N - / : ; ( ) € & @ Done|1.75|B " & _
+                                                "|0.5|S|N - / : ; ( ) в‚¬ & @ Done|1.75|B " & _
                                                 "#+=|||N . , ? ! ' "" #+=|1.25 " & _
                                                 "ABC|1.5|D|N BG|1.5|D space|6 ABC|1.25|D keyb||D"
 Private Const STR_EN_LAYOUT4         As String = "[ ] { } # % ^ * + = <=||D " & _
-                                                "|0.5|S|N _ \ | ~ < > $ & · Done|1.75|B " & _
+                                                "|0.5|S|N _ \ | ~ < > $ & В· Done|1.75|B " & _
                                                 "#+=||L|N . , ? ! ' "" #+=|1.25|L " & _
                                                 "ABC|1.5|D|N BG|1.5|D space|6 ABC|1.25|D keyb||D"
-Private Const STR_BG_LAYOUT1        As String = "я в е р т ъ у и о п ю <=|1.75|D " & _
-                                                "а|||N с д ф г х й к л ш щ Done|1.75|B " & _
-                                                "^^|||N з ь ц ж б н м ч . , ^^|1.25| " & _
-                                                "?!123|1.5|D|N EN|1.5|D интервал|6 ?!123|1.25|D keyb||D"
-Private Const STR_BG_LAYOUT2        As String = "Я В Е Р Т Ъ У И О П Ю <=|1.75|D " & _
-                                                "А|||N С Д Ф Г Х Й К Л Ш Щ Done|1.75|B " & _
-                                                "^^||L|N З Ь Ц Ж Б Н М Ч . , ^^|1.25|L " & _
-                                                "?!123|1.5|D|N EN|1.5|D интервал|6 ?!123|1.25|D keyb||D"
+Private Const STR_BG_LAYOUT1        As String = "СЏ РІ Рµ СЂ С‚ СЉ Сѓ Рё Рѕ Рї СЋ <=|1.75|D " & _
+                                                "Р°|||N СЃ Рґ С„ Рі С… Р№ Рє Р» С€ С‰ Done|1.75|B " & _
+                                                "^^|||N Р· СЊ С† Р¶ Р± РЅ Рј С‡ . , ^^|1.25| " & _
+                                                "?!123|1.5|D|N EN|1.5|D РёРЅС‚РµСЂРІР°Р»|6 ?!123|1.25|D keyb||D"
+Private Const STR_BG_LAYOUT2        As String = "РЇ Р’ Р• Р  Рў РЄ РЈ Р Рћ Рџ Р® <=|1.75|D " & _
+                                                "Рђ|||N РЎ Р” Р¤ Р“ РҐ Р™ Рљ Р› РЁ Р© Done|1.75|B " & _
+                                                "^^||L|N Р— Р¬ Р¦ Р– Р‘ Рќ Рњ Р§ . , ^^|1.25|L " & _
+                                                "?!123|1.5|D|N EN|1.5|D РёРЅС‚РµСЂРІР°Р»|6 ?!123|1.25|D keyb||D"
 Private Const STR_BG_LAYOUT3        As String = "1 2 3 4 5 6 7 8 9 0 <=||D " & _
-                                                "|0.5|S|N - / : ; ( ) € & @ Done|1.75|B " & _
+                                                "|0.5|S|N - / : ; ( ) в‚¬ & @ Done|1.75|B " & _
                                                 "#+=|||N . , ? ! ' "" #+=|1.25 " & _
-                                                "АБВ|1.5|D|N EN|1.5|D интервал|6 ABC|1.25|D keyb||D"
+                                                "РђР‘Р’|1.5|D|N EN|1.5|D РёРЅС‚РµСЂРІР°Р»|6 ABC|1.25|D keyb||D"
 Private Const STR_BG_LAYOUT4        As String = "[ ] { } # % ^ * + = <=||D " & _
-                                                "|0.5|S|N _ \ | ~ < > $ & · Done|1.75|B " & _
+                                                "|0.5|S|N _ \ | ~ < > $ & В· Done|1.75|B " & _
                                                 "#+=||L|N . , ? ! ' "" #+=|1.25|L " & _
-                                                "АБВ|1.5|D|N EN|1.5|D интервал|6 ABC|1.25|D keyb||D"
+                                                "РђР‘Р’|1.5|D|N EN|1.5|D РёРЅС‚РµСЂРІР°Р»|6 ABC|1.25|D keyb||D"
                                                 
 Private m_oCtlCancelMode        As Object
 Private m_sNextLayout           As String
@@ -175,14 +175,14 @@ Private Sub ctxTouchKeyboard1_ButtonClick(ByVal Index As Long)
     Case "?!123"
         ctxTouchKeyboard1.Layout = IIf(m_bIsIntl, STR_BG_LAYOUT3, STR_EN_LAYOUT3)
         m_sNextLayout = vbNullString
-    Case "ABC", "АБВ"
+    Case "ABC", "РђР‘Р’"
         ctxTouchKeyboard1.Layout = IIf(m_bIsIntl, STR_BG_LAYOUT1, STR_EN_LAYOUT1)
         m_sNextLayout = vbNullString
     Case "<="
         sText = "{BKSP}"
     Case "Done"
         sText = "{ENTER}"
-    Case "space", "интервал"
+    Case "space", "РёРЅС‚РµСЂРІР°Р»"
         sText = " "
     Case "(", ")", "[", "]", "{", "}", "+", "^", "%", "~"
         sText = "{" & ctxTouchKeyboard1.ButtonCaption(Index) & "}"
@@ -229,7 +229,7 @@ End Sub
 
 Private Sub pvSendKeys(oCtl As ctxTouchKeyboard, sText As String)
     If LenB(sText) <> 0 Then
-        If sText Like "[а-яА-Я]" Then
+        If sText Like "[Р°-СЏРђ-РЇ]" Then
             KeybLanguage = "bg"
         ElseIf sText Like "[a-zA-Z]" Then
             KeybLanguage = "en"
